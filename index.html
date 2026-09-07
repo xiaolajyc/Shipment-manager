@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>海运管理</title>
+<style>
+:root{
+  --bg:#f4f6f8;--panel:#fff;--text:#17212b;--muted:#6b7785;--line:#dfe4ea;
+  --primary:#1f6feb;--primary2:#eaf2ff;--green:#138a55;--greenbg:#eaf8f1;
+  --amber:#a96a00;--amberbg:#fff5dc;--red:#c93636;--redbg:#fff0f0;
+  --shadow:0 8px 28px rgba(20,40,70,.08);--radius:14px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.app{display:flex;min-height:100vh}
+.sidebar{width:230px;background:#111827;color:#dbe4ee;position:sticky;top:0;height:100vh;padding:18px 12px;display:flex;flex-direction:column;gap:10px}
+.brand{padding:8px 10px 16px;font-weight:800;font-size:19px;color:#fff}
+.brand small{display:block;color:#93a1b2;font-weight:500;font-size:12px;margin-top:3px}
+.nav{display:flex;flex-direction:column;gap:5px}
+.nav button{border:0;background:transparent;color:#c5cfdb;text-align:left;padding:10px 12px;border-radius:10px}
+.nav button:hover,.nav button.active{background:#1f2937;color:#fff}
+.nav .sep{height:1px;background:#273244;margin:8px 6px}
+.main{flex:1;min-width:0}
+.topbar{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 22px;position:sticky;top:0;z-index:10}
+.topbar .title{font-weight:750;font-size:18px;min-width:130px}
+.search{flex:1;max-width:520px;position:relative}
+.search input{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px 9px 36px;background:#f8fafc}
+.search:before{content:"⌕";position:absolute;left:12px;top:5px;font-size:21px;color:#7c8a9a}
+.topbar-actions{margin-left:auto;display:flex;gap:8px}
+.content{padding:22px;max-width:1680px;margin:0 auto}
+.page{display:none}.page.active{display:block}
+h1,h2,h3{margin:0 0 14px}.page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.page-head .actions{display:flex;gap:8px;flex-wrap:wrap}
+.muted{color:var(--muted)}
+.btn{border:1px solid var(--line);background:#fff;padding:8px 12px;border-radius:9px;color:#263442}
+.btn:hover{background:#f8fafc}.btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn.success{background:var(--green);color:#fff;border-color:var(--green)}.btn.danger{background:var(--red);color:#fff;border-color:var(--red)}
+.btn.ghost{background:transparent}.btn.small{padding:5px 8px;font-size:12px}.btn.icon{width:34px;height:34px;padding:0}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.kpi .label{color:var(--muted);font-size:12px}.kpi .value{font-size:28px;font-weight:800;margin-top:4px}.kpi .sub{color:var(--muted);font-size:12px;margin-top:2px}
+.grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+table{border-collapse:collapse;width:100%;min-width:760px}
+th,td{padding:9px 10px;border-bottom:1px solid #edf0f3;text-align:left;vertical-align:middle;white-space:nowrap}
+th{background:#f7f9fb;color:#516170;font-size:12px;position:sticky;top:0;z-index:1}
+tr:last-child td{border-bottom:0}
+td.wrap{white-space:normal;min-width:240px}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
+.toolbar input,.toolbar select,.field input,.field select,.field textarea{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;color:var(--text)}
+.toolbar input{min-width:220px}
+.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:700}
+.badge.blue{background:var(--primary2);color:#1759b4}.badge.green{background:var(--greenbg);color:#16714a}
+.badge.amber{background:var(--amberbg);color:#8a5700}.badge.red{background:var(--redbg);color:#ab2929}.badge.gray{background:#eef1f4;color:#5d6975}
+.notice{padding:10px 12px;border-radius:10px;background:#f7f9fb;border:1px solid var(--line);margin-bottom:12px}
+.notice.warn{background:var(--amberbg);border-color:#f1d893}.notice.danger{background:var(--redbg);border-color:#f1b9b9}
+.list{display:flex;flex-direction:column;gap:8px}.list-item{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px dashed var(--line)}
+.list-item:last-child{border-bottom:0}
+.bar-chart{display:flex;align-items:flex-end;gap:10px;height:230px;padding:15px 5px 4px}
+.bar{flex:1;min-width:18px;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.bar > div:first-child{width:100%;max-width:42px;background:var(--primary);border-radius:7px 7px 2px 2px;min-height:2px}
+.bar span{font-size:10px;color:var(--muted);text-align:center}
+.bar b{font-size:10px;font-weight:700}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.detail{border:1px solid var(--line);border-radius:10px;padding:10px}.detail label{display:block;color:var(--muted);font-size:11px}.detail strong{display:block;margin-top:2px}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.modal-back{position:fixed;inset:0;background:rgba(10,18,28,.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
+.modal-back.open{display:flex}.modal{width:min(980px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.22);padding:18px}
+.modal.wide{width:min(1200px,100%)}.modal h3{margin-bottom:4px}
+.modal-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.form-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.field{display:flex;flex-direction:column;gap:5px}.field label{font-size:12px;color:var(--muted)}
+.field.full{grid-column:1/-1}.field textarea{min-height:90px;resize:vertical}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:14px}.tab{border:0;background:transparent;padding:9px 10px;border-bottom:2px solid transparent;color:var(--muted)}.tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:700}
+.split{display:grid;grid-template-columns:1.3fr .7fr;gap:16px}
+.progress{height:8px;border-radius:99px;background:#edf0f3;overflow:hidden}.progress>div{height:100%;background:var(--primary)}
+.mobile-note{font-size:12px;color:var(--muted)}
+.dropzone{border:2px dashed #bac5d1;border-radius:14px;padding:36px;text-align:center;background:#fbfcfe}
+.dropzone.drag{border-color:var(--primary);background:var(--primary2)}
+.hidden{display:none!important}
+@media(max-width:1100px){.cards{grid-template-columns:repeat(2,1fr)}.grid2,.split{grid-template-columns:1fr}.grid3{grid-template-columns:1fr 1fr}}
+@media(max-width:800px){
+  .app{display:block}.sidebar{position:static;width:100%;height:auto;padding:8px;display:block}.brand{display:inline-block;padding:8px}.brand small{display:none}.nav{display:flex;flex-direction:row;overflow:auto}.nav button{white-space:nowrap}.nav .sep{display:none}
+  .topbar{position:sticky;top:0;padding:0 12px;height:58px}.topbar .title{min-width:auto;font-size:16px}.topbar-actions{display:none}.content{padding:12px}.cards{grid-template-columns:1fr 1fr}.page-head{align-items:flex-start;flex-direction:column}.form-grid,.form-grid.three,.detail-grid{grid-template-columns:1fr}
+  .search{max-width:none}.search input{padding-left:32px}
+  table{min-width:680px}
+}
+@media(max-width:500px){.cards{grid-template-columns:1fr 1fr}.kpi .value{font-size:23px}.modal-back{padding:8px}.modal{padding:13px}.btn{padding:8px 10px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">🚢 海运管理<small>本地数据 · 电脑主端</small></div>
+    <div class="nav" id="nav">
+      <button data-page="dashboard">🏠 首页</button>
+      <button data-page="import">📥 PDD导入</button>
+      <button data-page="inventory">📦 国内库存</button>
+      <button data-page="boxes">🚢 海运箱</button>
+      <button data-page="logistics">🚚 物流追踪</button>
+      <button data-page="inspection">📋 到货查验</button>
+      <button data-page="finance">💰 财务统计</button>
+      <button data-page="meds">💊 药品管理</button>
+      <div class="sep"></div>
+      <button data-page="data">💾 数据管理</button>
+      <button data-page="settings">⚙️ 设置</button>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div class="title" id="pageTitle">首页</div>
+      <div class="search"><input id="globalSearch" placeholder="搜索商品 / 箱号 / PDD订单号 / 国内单号 / 国际单号 / 海运号"></div>
+      <div class="topbar-actions"><button class="btn small" onclick="openNewBox()">＋ 新建箱子</button></div>
+    </header>
+    <div class="content">
+
+      <section class="page" id="page-dashboard">
+        <div class="page-head"><div><h2>海运概况</h2><div class="muted">本地数据实时统计</div></div><div class="actions"><button class="btn" onclick="navigate('data')">数据管理</button><button class="btn primary" onclick="navigate('import')">导入PDD</button></div></div>
+        <div class="cards">
+          <div class="card kpi"><div class="label">待处理库存项</div><div class="value" id="kpiInv">0</div><div class="sub">仍有未分配数量</div></div>
+          <div class="card kpi"><div class="label">待装箱</div><div class="value" id="kpiPack">0</div><div class="sub">状态为待装箱</div></div>
+          <div class="card kpi"><div class="label">运输中</div><div class="value" id="kpiTransit">0</div><div class="sub">国内 / 国际运输</div></div>
+          <div class="card kpi"><div class="label">待查验</div><div class="value" id="kpiInspect">0</div><div class="sub">已到货未完成</div></div>
+        </div>
+        <div class="grid2">
+          <div class="card"><h3>最近海运箱</h3><div id="recentBoxes"></div></div>
+          <div class="card"><h3>采购金额概览</h3><div id="dashFinance"></div></div>
+        </div>
+        <div class="card" style="margin-top:16px"><h3>待处理事项</h3><div id="todoList"></div></div>
+      </section>
+
+      <section class="page" id="page-import">
+        <div class="page-head"><div><h2>PDD导入</h2><div class="muted">电脑端优先：Excel 直接导入，截图OCR作为备用</div></div></div>
+        <div class="tabs"><button class="tab active" data-itab="excel">Excel / CSV</button><button class="tab" data-itab="paste">文本粘贴</button><button class="tab" data-itab="ocr">截图 OCR</button><button class="tab" data-itab="history">导入历史</button></div>
+        <div id="itab-excel">
+          <div class="card">
+            <div class="dropzone" id="dropzone">
+              <div style="font-size:34px">📄</div><h3>拖入 PDD 清单 Excel / CSV</h3>
+              <div class="muted">支持 .xlsx / .xlsm / .csv / .tsv；固定按：序号、物品名字、数量、重量、商品名称、订单号、价格、单价 解析</div>
+              <div style="margin-top:14px"><button class="btn primary" onclick="document.getElementById('fileInput').click()">选择文件</button></div>
+              <input id="fileInput" type="file" accept=".xlsx,.xlsm,.csv,.tsv" class="hidden">
+            </div>
+            <div id="importPreview" style="margin-top:16px"></div>
+          </div>
+        </div>
+        <div id="itab-paste" class="hidden">
+          <div class="card">
+            <div class="notice">从 Excel 直接复制表格单元格后，在下面粘贴即可。系统按 8 列解析：序号、物品名字、数量、重量(g)、商品名称、订单号、价格、单价。即使没有复制表头也可以识别。</div>
+            <div class="field full">
+              <label>粘贴 Excel 表格文本</label>
+              <textarea id="pasteInput" style="width:100%;min-height:260px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace" placeholder="例如：&#10;243&#9;月桂叶&#9;1&#9;6960&#9;月桂叶 1kg...&#9;260116-xxxx&#9;6.96&#9;6.96&#10;244&#9;黑色遮阳网&#9;1&#9;17110&#9;黑色加密加厚...&#9;260123-xxxx&#9;17.11&#9;17.11"></textarea>
+            </div>
+            <div class="toolbar" style="margin-top:10px">
+              <button class="btn" onclick="document.getElementById('pasteInput').value='';document.getElementById('pastePreview').innerHTML=''">清空</button>
+              <button class="btn primary" onclick="parsePastedText()">解析并预览</button>
+            </div>
+            <div id="pastePreview"></div>
+          </div>
+        </div>
+        <div id="itab-ocr" class="hidden">
+          <div class="card">
+            <div class="notice">截图 OCR 需要在浏览器中临时加载识别引擎；核心数据仍全部保存在本地。没有网络时仍可使用 Excel/CSV 与手工录入。</div>
+            <div class="dropzone"><div style="font-size:34px">🖼️</div><h3>上传 Excel 表格截图</h3><div class="muted">建议截图包含完整行和列；没有表头也可以按固定 8 列识别。</div><div style="margin-top:14px"><button class="btn primary" onclick="document.getElementById('ocrInput').click()">选择图片</button></div><input id="ocrInput" type="file" accept="image/*" class="hidden"></div>
+            <div id="ocrStatus" style="margin-top:12px"></div><div id="ocrPreview" style="margin-top:12px"></div>
+          </div>
+        </div>
+        <div id="itab-history" class="hidden"><div class="card"><div id="importHistory"></div></div></div>
+      </section>
+
+      <section class="page" id="page-inventory">
+        <div class="page-head"><div><h2>国内库存</h2><div class="muted">同名商品可汇总；采购来源保留独立记录</div></div></div>
+        <div class="card">
+          <div class="toolbar">
+      <input id="invSearch" placeholder="搜索商品名 / 订单号">
+      <select id="invStatus"><option value="all">全部状态</option><option value="pending">待处理</option><option value="partial">部分分配</option><option value="allocated">已全部分配</option></select>
+      <button class="btn primary" onclick="openBatchAllocate()">批量分配</button><button class="btn" onclick="openBatchMove()">批量移动</button>
+      <span class="muted" id="invSelectedCount">已选 0 项</span>
+    </div>
+          <div class="table-wrap"><table><thead><tr><th><input type="checkbox" id="invSelectAll" onchange="toggleAllInventory(this.checked)"></th><th>物品</th><th>单位</th><th>原始数量</th><th>已分配</th><th>待处理</th><th>留存家里</th><th>海运中</th><th>采购金额</th><th>操作</th></tr></thead><tbody id="inventoryBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="page" id="page-boxes">
+        <div class="page-head"><div><h2>海运箱</h2><div class="muted">每个箱子独立管理；海运号只是物流字段</div></div><div class="actions"><button class="btn primary" onclick="openNewBox()">＋ 新建海运箱</button></div></div>
+        <div class="card">
+          <div class="toolbar"><input id="boxSearch" placeholder="搜索箱号 / 海运号 / 物流单号"><select id="boxStatus"><option value="all">全部状态</option><option>待装箱</option><option>装箱中</option><option>已封箱</option><option>国内运输</option><option>国际运输</option><option>已到货</option><option>查验完成</option></select></div>
+          <div class="table-wrap"><table><thead><tr><th>箱号</th><th>状态</th><th>商品行</th><th>预计商品重</th><th>箱体重</th><th>实际整箱重</th><th>海运号</th><th>预计到货</th><th>操作</th></tr></thead><tbody id="boxesBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="page" id="page-logistics">
+        <div class="page-head"><div><h2>物流追踪</h2><div class="muted">支持按箱号、国内单号、国际单号、海运号搜索</div></div></div>
+        <div class="card"><div class="toolbar"><input id="logSearch" placeholder="搜索物流信息"></div><div class="table-wrap"><table><thead><tr><th>箱号</th><th>状态</th><th>国内物流</th><th>国内单号</th><th>国际物流</th><th>国际单号</th><th>海运号</th><th>预计到货</th><th>操作</th></tr></thead><tbody id="logBody"></tbody></table></div></div>
+      </section>
+
+      <section class="page" id="page-inspection">
+        <div class="page-head"><div><h2>到货查验</h2><div class="muted">手机端同样读取这里的数据并执行现场核查</div></div></div>
+        <div class="card">
+          <div class="toolbar"><select id="inspStatus"><option value="all">全部</option><option value="待查验">待查验</option><option value="异常">异常</option><option value="已完成">已完成</option></select><input id="inspSearch" placeholder="搜索箱号 / 海运号"></div>
+          <div class="table-wrap"><table><thead><tr><th>箱号</th><th>状态</th><th>海运号</th><th>实际整箱重</th><th>到货日期</th><th>查验状态</th><th>操作</th></tr></thead><tbody id="inspBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="page" id="page-finance">
+        <div class="page-head"><div><h2>财务统计</h2><div class="muted">采购日期统一使用首次录入日期；币种 RMB</div></div></div>
+        <div class="cards">
+          <div class="card kpi"><div class="label">累计采购金额</div><div class="value" id="finTotal">¥0</div><div class="sub">全部采购记录</div></div>
+          <div class="card kpi"><div class="label">本年度采购</div><div class="value" id="finYear">¥0</div><div class="sub" id="finYearLabel">—</div></div>
+          <div class="card kpi"><div class="label">本月采购</div><div class="value" id="finMonth">¥0</div><div class="sub" id="finMonthLabel">—</div></div>
+          <div class="card kpi"><div class="label">采购记录</div><div class="value" id="finCount">0</div><div class="sub">去重后正式记录</div></div>
+        </div>
+        <div class="grid2">
+          <div class="card"><h3>年度采购金额</h3><div id="yearChart" class="bar-chart"></div></div>
+          <div class="card"><h3>月度采购金额（当前年度）</h3><div id="monthChart" class="bar-chart"></div></div>
+        </div>
+        <div class="card" style="margin-top:16px"><h3>商品采购金额排行</h3><div class="table-wrap"><table><thead><tr><th>商品</th><th>采购记录</th><th>数量</th><th>采购金额</th></tr></thead><tbody id="productSpendBody"></tbody></table></div></div>
+      </section>
+
+      <section class="page" id="page-meds">
+        <div class="page-head"><div><h2>药品管理</h2><div class="muted">独立管理药品库存，可关联海运箱</div></div><button class="btn primary" onclick="openMed()">＋ 添加药品</button></div>
+        <div class="card"><div class="table-wrap"><table><thead><tr><th>药品</th><th>规格</th><th>数量</th><th>有效期</th><th>箱子/去向</th><th>备注</th><th>操作</th></tr></thead><tbody id="medBody"></tbody></table></div></div>
+      </section>
+
+      <section class="page" id="page-data">
+        <div class="page-head"><div><h2>数据管理</h2><div class="muted">所有数据保存在当前浏览器本地 IndexedDB</div></div></div>
+        <div class="grid2">
+          <div class="card"><h3>完整备份</h3><p class="muted">适合电脑主端的完整备份与恢复。清除所有数据不可恢复，执行前会要求两次确认。</p><div class="toolbar"><button class="btn primary" id="btnExportFull" onclick="exportFullBackup()">导出完整 JSON</button><button class="btn" id="btnImportFull" onclick="document.getElementById('jsonInput').click()">导入完整 JSON</button><button class="btn danger" id="btnClearAll" onclick="window.clearAllData()" >清除所有数据</button><input id="jsonInput" type="file" accept=".json" class="hidden"></div></div>
+          <div class="card"><h3>手机数据包</h3><p class="muted">电脑 → 手机：导出当前主数据快照。手机端可查看库存、箱子和物流，并完成到货查验；手机完成查验后导出“查验结果包”回电脑。</p><div class="toolbar"><button class="btn primary" id="btnExportMobile" onclick="exportMobilePackage()">导出手机数据包</button><button class="btn" id="btnImportMobile" onclick="document.getElementById('mobileResultInput').click()">导入手机查验结果</button><button class="btn" id="btnExportInspection" onclick="exportInspectionResults()">导出查验结果</button><input id="mobileResultInput" type="file" accept=".json" class="hidden"></div></div>
+        </div>
+        <div class="card" style="margin-top:16px"><h3>Excel 导出</h3><div class="toolbar"><button class="btn" id="btnExportPurchases" onclick="exportPurchasesCSV()">采购记录 CSV</button><button class="btn" id="btnExportInventory" onclick="exportInventoryCSV()">库存 CSV</button><button class="btn" id="btnExportBoxes" onclick="exportBoxesCSV()">海运箱 CSV</button><button class="btn" id="btnExportInspections" onclick="exportInspectionsCSV()">查验 CSV</button></div></div>
+        <div class="card" style="margin-top:16px"><h3>本地数据概况</h3><div class="detail-grid" id="dataSummary"></div></div>
+      </section>
+
+      <section class="page" id="page-settings">
+        <div class="page-head"><div><h2>设置</h2><div class="muted">海运箱编号与基础偏好</div></div></div>
+        <div class="card">
+          <div class="form-grid">
+            <div class="field"><label>箱号前缀</label><input id="setPrefix" value="Y"></div>
+            <div class="field"><label>默认新箱编号</label><input id="setNextBox" readonly></div>
+            <div class="field"><label>重量单位</label><input value="kg" readonly></div>
+            <div class="field"><label>采购币种</label><input value="RMB / ¥" readonly></div>
+          </div>
+          <div class="modal-foot"><button class="btn primary" onclick="saveSettings()">保存设置</button></div>
+        </div>
+      </section>
+
+      <section class="page" id="page-search">
+        <div class="page-head"><div><h2>搜索结果</h2><div class="muted" id="searchHint"></div></div></div>
+        <div id="searchResults"></div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<div class="modal-back" id="modalBack"><div class="modal" id="modal"></div></div>
+
+<script>
+const DB_NAME='shipping_manager_v1', DB_VER=1, STORE='state';
+const defaultState=()=>({
+  meta:{version:1,updatedAt:Date.now()},
+  settings:{prefix:'Y'},
+  purchases:[],
+  allocations:[],
+  boxes:[],
+  inspections:[],
+  meds:[],
+  importHistory:[],
+  logs:[]
+});
+let S=defaultState(), importRows=[], ocrRows=[];
+
+function id(p='id'){return p+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)}
+function now(){return new Date().toISOString()}
+function localDate(){const d=new Date();return d.toISOString().slice(0,10)}
+function esc(v=''){return String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function num(v){if(v===null||v===undefined||v==='')return NaN; const n=Number(String(v).replace(/[,￥¥\s]/g,''));return Number.isFinite(n)?n:NaN}
+function fmtNum(n){if(n===null||n===undefined||Number.isNaN(n))return '—'; return new Intl.NumberFormat('zh-CN',{maximumFractionDigits:3}).format(n)}
+function fmtMoney(n){return '¥'+new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(Number(n)||0)}
+function fmtDate(v){if(!v)return '—'; const d=new Date(v);return isNaN(d)?v:d.toLocaleDateString('zh-CN')}
+function sum(a,f){return a.reduce((x,y)=>x+(Number(f(y))||0),0)}
+function parseQty(v){
+  if(typeof v==='number') return {value:v,unit:''};
+  const s=String(v||'').trim().replace(/，/g,',');
+  const m=s.match(/^([\d.]+)\s*(g|kg|个|件|根|包|盒|瓶|套|只|支|袋|米|m|斤)?$/i);
+  if(m)return {value:Number(m[1]),unit:(m[2]||'').toLowerCase()};
+  const n=num(s); return Number.isFinite(n)?{value:n,unit:''}:{value:0,unit:''};
+}
+function qtyText(v,u){return `${fmtNum(v)}${u||''}`}
+function normKg(v){const n=num(v); return Number.isFinite(n)?n:0}
+function unitWeight(p){
+  const q=Number(p.qtyValue)||0,w=Number(p.weightKg)||0;
+  return q>0?w/q:0;
+}
+
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,DB_VER);r.onupgradeneeded=()=>{r.result.createObjectStore(STORE)};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function loadState(){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const rq=tx.objectStore(STORE).get('state');rq.onsuccess=()=>res(rq.result||defaultState());rq.onerror=()=>rej(rq.error)})}
+async function saveState(){
+  S.meta.updatedAt=Date.now();
+  try{
+    const db=await openDB();
+    return await new Promise((res,rej)=>{
+      const tx=db.transaction(STORE,'readwrite');
+      tx.objectStore(STORE).put(S,'state');
+      tx.oncomplete=res;
+      tx.onerror=()=>rej(tx.error)
+    });
+  }catch(err){
+    console.warn('IndexedDB save failed, using localStorage fallback:',err);
+    localStorage.setItem('shipping_manager_fallback',JSON.stringify(S));
+    window.__storageFallback=true;
+  }
+}
+async function init(){
+  // Bind UI first so buttons remain responsive even if local storage initialization fails.
+  bindEvents();
+  try{
+    S=await loadState();
+  }catch(err){
+    console.warn('IndexedDB unavailable, using localStorage fallback:',err);
+    try{
+      const raw=localStorage.getItem('shipping_manager_fallback');
+      S=raw?JSON.parse(raw):defaultState();
+    }catch(e){ S=defaultState(); }
+    window.__storageFallback=true;
+  }
+  for(const a of S.allocations||[]){
+    if(a.purchaseId)continue;
+    const matches=(S.purchases||[]).filter(p=>!p.deleted&&p.itemName===a.itemName&&p.qtyUnit===(a.qtyUnit||''));
+    if(matches.length===1)a.purchaseId=matches[0].id;
+  }
+  document.getElementById('setPrefix').value=S.settings.prefix||'Y';
+  navigate('dashboard');
+  try{refresh()}catch(err){console.error('页面刷新错误：',err)}
+}
+function bindEvents(){
+  document.querySelectorAll('#nav button[data-page]').forEach(b=>b.onclick=()=>navigate(b.dataset.page));
+  document.getElementById('globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter')doGlobalSearch(e.target.value)});
+  document.getElementById('fileInput').addEventListener('change',e=>handleFile(e.target.files[0]));
+  const dz=document.getElementById('dropzone');['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag')}));['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag')}));dz.addEventListener('drop',e=>handleFile(e.dataTransfer.files[0]));
+  document.getElementById('ocrInput').addEventListener('change',e=>handleOCR(e.target.files[0]));
+  document.getElementById('jsonInput').addEventListener('change',e=>importFullJSON(e.target.files[0]));
+  document.getElementById('mobileResultInput').addEventListener('change',e=>importMobileResults(e.target.files[0]));
+  ['invSearch','invStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderInventory));
+  ['boxSearch','boxStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderBoxes));
+  ['logSearch'].forEach(x=>document.getElementById(x).addEventListener('input',renderLogistics));
+  ['inspSearch','inspStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderInspection));
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');['excel','paste','ocr','history'].forEach(k=>document.getElementById('itab-'+k).classList.toggle('hidden',t.dataset.itab!==k))});
+  const dbind=(idv,fn)=>{const el=document.getElementById(idv);if(el)el.addEventListener('click',e=>{e.preventDefault();try{const r=fn();if(r&&r.catch)r.catch(err=>alert('操作失败：'+err.message))}catch(err){alert('操作失败：'+err.message)}})};
+  dbind('btnExportFull',exportFullBackup); dbind('btnImportFull',()=>document.getElementById('jsonInput').click()); dbind('btnClearAll',clearAllData);
+  dbind('btnExportMobile',exportMobilePackage); dbind('btnImportMobile',()=>document.getElementById('mobileResultInput').click()); dbind('btnExportInspection',exportInspectionResults);
+  dbind('btnExportPurchases',exportPurchasesCSV); dbind('btnExportInventory',exportInventoryCSV); dbind('btnExportBoxes',exportBoxesCSV); dbind('btnExportInspections',exportInspectionsCSV);
+}
+function navigate(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const el=document.getElementById('page-'+page); if(!el){page='dashboard';}
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelectorAll('#nav button[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
+  const labels={dashboard:'首页',import:'PDD导入',inventory:'国内库存',boxes:'海运箱',logistics:'物流追踪',inspection:'到货查验',finance:'财务统计',meds:'药品管理',data:'数据管理',settings:'设置',search:'搜索结果'};
+  document.getElementById('pageTitle').textContent=labels[page]||'海运管理';
+  if(page==='dashboard')renderDashboard();
+  if(page==='inventory')renderInventory();
+  if(page==='boxes')renderBoxes();
+  if(page==='logistics')renderLogistics();
+  if(page==='inspection')renderInspection();
+  if(page==='finance')renderFinance();
+  if(page==='meds')renderMeds();
+  if(page==='data')renderDataSummary();
+  if(page==='settings')renderSettings();
+  if(page==='import'){renderHistory();renderPreview(); if(document.getElementById('pastePreview')?.innerHTML) renderPastePreview();}
+}
+function refresh(){renderDashboard();renderInventory();renderBoxes();renderLogistics();renderInspection();renderFinance();renderMeds();renderDataSummary();renderSettings()}
+function statusBadge(s){
+  const cls=s==='已到货'||s==='查验完成'||s==='已完成'?'green':s==='异常'?'red':(s==='待装箱'||s==='装箱中')?'blue':(s==='国际运输'||s==='国内运输'||s==='待查验')?'amber':'gray';
+  return `<span class="badge ${cls}">${esc(s||'—')}</span>`
+}
+
+function renderDashboard(){
+  const inv=inventoryGroups();
+  document.getElementById('kpiInv').textContent=inv.filter(x=>x.remaining>0).length;
+  document.getElementById('kpiPack').textContent=S.boxes.filter(b=>b.status==='待装箱').length;
+  document.getElementById('kpiTransit').textContent=S.boxes.filter(b=>['国内运输','国际运输'].includes(b.status)).length;
+  const wait=S.boxes.filter(b=>b.status==='已到货' && inspectionFor(b.id)?.status!=='已完成').length;
+  document.getElementById('kpiInspect').textContent=wait;
+  const rec=S.boxes.slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')).slice(0,8);
+  document.getElementById('recentBoxes').innerHTML=rec.length?`<div class="list">${rec.map(b=>`<div class="list-item"><div><b>${esc(b.code)}</b><div>${statusBadge(b.status)} <span class="muted">${fmtDate(b.createdAt)}</span></div></div><div style="text-align:right"><b>${fmtNum(b.actualTotalWeightKg)} kg</b><div class="muted">${esc(b.seaNo||'无海运号')}</div></div></div>`).join('')}</div>`:`<div class="empty">暂无海运箱</div>`;
+  const years={}; S.purchases.forEach(p=>{const y=(p.enteredAt||'').slice(0,4)||'未知';years[y]=(years[y]||0)+(p.priceRmb||0)});const ys=Object.keys(years).sort().slice(-5);const total=sum(S.purchases,p=>p.priceRmb);
+  document.getElementById('dashFinance').innerHTML=`<div class="detail-grid"><div class="detail"><label>累计</label><strong>${fmtMoney(total)}</strong></div><div class="detail"><label>今年</label><strong>${fmtMoney(years[String(new Date().getFullYear())]||0)}</strong></div></div><div style="margin-top:10px">${ys.map(y=>`<div class="list-item"><span>${y}</span><b>${fmtMoney(years[y])}</b></div>`).join('')}</div>`;
+  const todos=[];
+  S.boxes.filter(b=>b.status==='已封箱'&&!b.domesticTrackingNo).slice(0,3).forEach(b=>todos.push(`⚠ ${b.code} 已封箱但没有国内物流单号`));
+  S.boxes.filter(b=>b.status==='已到货'&&inspectionFor(b.id)?.status!=='已完成').slice(0,3).forEach(b=>todos.push(`⚠ ${b.code} 已到货但尚未完成查验`));
+  inv.filter(x=>x.remaining>0).slice(0,3).forEach(x=>todos.push(`⚠ ${x.itemName} 仍有 ${qtyText(x.remaining,x.unit)} 待处理`));
+  document.getElementById('todoList').innerHTML=todos.length?`<div class="list">${todos.map(x=>`<div>${esc(x)}</div>`).join('')}</div>`:`<div class="empty">目前没有明显待处理事项</div>`;
+}
+function allocationUsedForPurchase(purchaseId){
+  return sum(S.allocations.filter(a=>a.purchaseId===purchaseId), a=>a.plannedQty||0);
+}
+function purchaseRemaining(p){
+  return Math.max(0,(Number(p.qtyValue)||0)-allocationUsedForPurchase(p.id));
+}
+function inventoryGroups(){
+  const active=S.purchases.filter(p=>!p.deleted);
+  const map=new Map();
+  for(const p of active){
+    const key=p.itemName+'||'+(p.qtyUnit||'');
+    if(!map.has(key))map.set(key,{itemName:p.itemName,unit:p.qtyUnit||'',sources:[],rawQty:0,weightKg:0,spend:0});
+    const g=map.get(key);
+    p.remainingQty=purchaseRemaining(p);
+    g.sources.push(p);
+    g.rawQty+=p.qtyValue||0;
+    g.weightKg+=p.weightKg||0;
+    g.spend+=p.priceRmb||0;
+  }
+  for(const g of map.values()){
+    const key=g.itemName+'||'+(g.unit||'');
+    g.allocations=S.allocations.filter(a=>a.itemKey===key);
+    g.home=sum(g.allocations,a=>a.destinationType==='home'?a.plannedQty:0);
+    g.other=sum(g.allocations,a=>a.destinationType==='other'?a.plannedQty:0);
+    g.plannedBox=sum(g.allocations,a=>a.destinationType==='box'?a.plannedQty:0);
+    g.packedBox=sum(g.allocations,a=>a.destinationType==='box'?(a.packedQty||0):0);
+    g.allocated=g.home+g.other+g.plannedBox;
+    g.remaining=sum(g.sources,p=>purchaseRemaining(p));
+  }
+  return [...map.values()];
+}
+function allocationByGroup(g){return S.allocations.filter(a=>a.itemKey===g.itemName+'||'+(g.unit||''))}
+function inventoryGroupKey(g){return g.itemName+'||'+(g.unit||'')}
+function renderInventory(){
+  const q=document.getElementById('invSearch').value.toLowerCase(), st=document.getElementById('invStatus').value;
+  let rows=inventoryGroups().filter(g=>!q || g.itemName.toLowerCase().includes(q)||g.sources.some(p=>(p.orderNo||'').toLowerCase().includes(q)));
+  rows=rows.filter(g=>st==='all'||(st==='pending'&&g.remaining>0&&g.allocated===0)||(st==='partial'&&g.remaining>0&&g.allocated>0)||(st==='allocated'&&g.remaining===0));
+  document.getElementById('inventoryBody').innerHTML=rows.length?rows.map(g=>`<tr>
+    <td><input class="inv-check" type="checkbox" value="${encodeURIComponent(inventoryGroupKey(g))}" onchange="updateInventorySelection()"></td>
+    <td><b>${esc(g.itemName)}</b></td><td>${esc(g.unit||'')}</td><td>${qtyText(g.rawQty,g.unit)}</td>
+    <td>${qtyText(g.allocated,g.unit)}</td><td><b>${qtyText(g.remaining,g.unit)}</b></td><td>${qtyText(g.home,g.unit)}</td><td>${qtyText(g.packedBox,g.unit)}</td>
+    <td>${fmtMoney(g.spend)}</td><td><button class="btn small primary" onclick="openAllocate('${encodeURIComponent(g.itemName)}','${encodeURIComponent(g.unit)}')">分配</button> <button class="btn small" onclick="openInventoryDetail('${encodeURIComponent(g.itemName)}','${encodeURIComponent(g.unit)}')">详情/调整</button></td></tr>`).join(''):`<tr><td colspan="10"><div class="empty">暂无库存记录</div></td></tr>`;
+  updateInventorySelection();
+}
+function updateInventorySelection(){
+  const n=document.querySelectorAll('.inv-check:checked').length;
+  const el=document.getElementById('invSelectedCount'); if(el)el.textContent=`已选 ${n} 项`;
+  const all=document.getElementById('invSelectAll'); if(all){const boxes=[...document.querySelectorAll('.inv-check')];all.checked=boxes.length>0&&boxes.every(x=>x.checked);all.indeterminate=boxes.some(x=>x.checked)&&!all.checked;}
+}
+function toggleAllInventory(checked){
+  document.querySelectorAll('.inv-check').forEach(x=>x.checked=checked);
+  updateInventorySelection();
+}
+function selectedInventoryGroups(){
+  return [...document.querySelectorAll('.inv-check:checked')].map(x=>decodeURIComponent(x.value));
+}
+function openInventoryDetail(ie,ue){const item=decodeURIComponent(ie),unit=decodeURIComponent(ue),g=inventoryGroups().find(x=>x.itemName===item&&x.unit===unit);if(!g)return;const src=g.sources.map(p=>`<div class="list-item"><span>${esc(p.orderNo||'无订单号')} · ${fmtDate(p.enteredAt)}</span><b>${qtyText(p.qtyValue,p.qtyUnit)} · ${fmtMoney(p.priceRmb)}</b></div>`).join('');const al=allocationByGroup(g).map(a=>`<div class="list-item"><span>${qtyText(a.plannedQty,a.qtyUnit)} → ${esc(allocationDisplayDestination(a))}</span><span>${a.destinationType==='box'&&a.packedQty!=null?'已装 '+qtyText(a.packedQty,a.qtyUnit)+' ':''}<button class="btn small" onclick="openMoveAllocation('${a.id}')">移动</button></span></div>`).join('');openModal(`<div class="modal-head"><div><h3>${esc(item)}</h3><div class="muted">${esc(unit||'')}</div></div><button class="btn icon" onclick="closeModal()">×</button></div><div class="detail-grid"><div class="detail"><label>原始数量</label><strong>${qtyText(g.rawQty,g.unit)}</strong></div><div class="detail"><label>待处理</label><strong>${qtyText(g.remaining,g.unit)}</strong></div><div class="detail"><label>采购金额</label><strong>${fmtMoney(g.spend)}</strong></div><div class="detail"><label>原始总重量</label><strong>${fmtNum(g.weightKg)} kg</strong></div></div><h4>采购来源</h4><div>${src||'<div class="empty">无</div>'}</div><h4 style="margin-top:16px">去向 / 分配</h4><div>${al||'<div class="empty">尚未分配</div>'}</div><div class="modal-foot"><button class="btn primary" onclick="closeModal();openAllocate('${encodeURIComponent(item)}','${encodeURIComponent(unit)}')">继续分配</button></div>`)}
+function openAllocate(ie,ue){
+  const item=decodeURIComponent(ie),unit=decodeURIComponent(ue),g=inventoryGroups().find(x=>x.itemName===item&&x.unit===unit); if(!g)return;
+  const boxes=S.boxes.filter(b=>['待装箱','装箱中'].includes(b.status));
+  const sources=g.sources.filter(p=>purchaseRemaining(p)>0);
+  openModal(`<div class="modal-head"><div><h3>分配：${esc(item)}</h3><div class="muted">总待处理 ${qtyText(g.remaining,g.unit)}；每笔采购独立限制，不可超过该采购记录原始数量</div></div><button class="btn icon" onclick="closeModal()">×</button></div>
+    <div class="table-wrap"><table><thead><tr><th>选择</th><th>录入日期</th><th>订单号</th><th>原始数量</th><th>已分配</th><th>剩余可分配</th></tr></thead><tbody>
+    ${sources.length?sources.map(p=>`<tr><td><input class="src-check" type="checkbox" value="${p.id}"></td><td>${fmtDate(p.enteredAt)}</td><td>${esc(p.orderNo||'—')}</td><td>${qtyText(p.qtyValue,p.qtyUnit)}</td><td>${qtyText((p.qtyValue||0)-purchaseRemaining(p),p.qtyUnit)}</td><td><b>${qtyText(purchaseRemaining(p),p.qtyUnit)}</b></td></tr>`).join(''):'<tr><td colspan="6"><div class="empty">该商品没有可分配库存</div></td></tr>'}</tbody></table></div>
+    <div class="toolbar" style="margin-top:12px"><button class="btn small" onclick="document.querySelectorAll('.src-check').forEach(x=>x.checked=true)">全选可分配来源</button><span class="muted">选择一条或多条采购来源后，输入分配总量；系统按所选来源顺序自动分摊，绝不会超过任何一笔采购数量。</span></div>
+    <div class="form-grid">
+      <div class="field"><label>分配总数量</label><input id="alQty" type="number" min="0" step="any"></div>
+      <div class="field"><label>单位</label><input id="alUnit" value="${esc(unit)}" readonly></div>
+      <div class="field full"><label>去向</label><select id="alDest" onchange="toggleAllocDest()"><option value="box">海运箱</option><option value="home">家里留存</option><option value="other">其他</option></select></div>
+      <div class="field full" id="alBoxField"><label>海运箱</label><select id="alBox">${boxes.length?boxes.map(b=>`<option value="${b.id}">${esc(b.code)} · ${esc(b.status)}</option>`).join(''):'<option value="">暂无可分配箱子，请先新建</option>'}</select></div>
+      <div class="field full hidden" id="alOtherField"><label>其他去向</label><input id="alOther" placeholder="例如：送人"></div>
+    </div>
+    <div class="notice" id="allocPreview">请先选择采购来源并输入数量</div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveAllocation('${encodeURIComponent(item)}','${encodeURIComponent(unit)}')">确认分配</button></div>`);
+  document.getElementById('alQty').addEventListener('input',()=>updateAllocationPreview(g));
+  document.querySelectorAll('.src-check').forEach(x=>x.addEventListener('change',()=>updateAllocationPreview(g)));
+  if(!boxes.length)document.getElementById('alDest').value='home';
+}
+function toggleAllocDest(){const d=document.getElementById('alDest').value;document.getElementById('alBoxField').classList.toggle('hidden',d!=='box');document.getElementById('alOtherField').classList.toggle('hidden',d!=='other')}
+function selectedSourcePurchases(){
+  return [...document.querySelectorAll('.src-check:checked')].map(x=>S.purchases.find(p=>p.id===x.value)).filter(Boolean);
+}
+function updateAllocationPreview(g){
+  const q=num(document.getElementById('alQty').value)||0, selected=selectedSourcePurchases();
+  const cap=sum(selected,p=>purchaseRemaining(p));
+  document.getElementById('allocPreview').textContent=`已选采购来源：${selected.length} 笔；可分配上限：${qtyText(cap,g.unit)}；本次预计占用：${qtyText(q,g.unit)}${q>cap?' ⚠ 超过所选采购来源可分配数量':''}`;
+}
+async function saveAllocation(ie,ue){
+  const item=decodeURIComponent(ie),unit=decodeURIComponent(ue),g=inventoryGroups().find(x=>x.itemName===item&&x.unit===unit),q=num(document.getElementById('alQty').value)||0,d=document.getElementById('alDest').value,selected=selectedSourcePurchases();
+  if(q<=0)return alert('请输入有效数量');
+  if(!selected.length)return alert('请至少选择一笔采购来源');
+  const cap=sum(selected,p=>purchaseRemaining(p));
+  if(q>cap+1e-9)return alert(`分配数量不能超过所选采购来源的剩余数量：${qtyText(cap,g.unit)}`);
+  if(d==='box'&&!document.getElementById('alBox').value)return alert('请选择海运箱');
+  if(d==='other'&&!document.getElementById('alOther').value.trim())return alert('请填写其他去向');
+  let remain=q;
+  for(const p of selected){
+    if(remain<=1e-9)break;
+    const available=purchaseRemaining(p),take=Math.min(remain,available);
+    if(take<=0)continue;
+    S.allocations.push({
+      id:id('al'),purchaseId:p.id,itemKey:item+'||'+unit,itemName:item,qtyValue:take,qtyUnit:unit,plannedQty:take,
+      destinationType:d,destinationId:d==='box'?document.getElementById('alBox').value:null,
+      destinationLabel:d==='other'?document.getElementById('alOther').value.trim():'',
+      createdAt:now(),packedQty:d==='box'?0:take
+    });
+    remain-=take;
+  }
+  if(remain>1e-9)return alert('分配失败：采购来源可用数量不足。');
+  S.logs.push({id:id('log'),time:now(),type:'allocation',text:`${item} 批量分配 ${qtyText(q,unit)} → ${d==='box'?boxCode(document.getElementById('alBox').value):(d==='home'?'家里':document.getElementById('alOther').value.trim())}`});
+  await saveState();closeModal();refresh();navigate('inventory');
+}
+
+function openBatchAllocate(){
+  const keys=selectedInventoryGroups();
+  if(!keys.length)return alert('请先在库存列表勾选至少一项商品');
+  const groups=keys.map(k=>{const [item,unit='']=k.split('||');return inventoryGroups().find(g=>g.itemName===item&&g.unit===unit)}).filter(Boolean).filter(g=>g.remaining>0);
+  if(!groups.length)return alert('所选商品没有可分配库存');
+  const boxes=S.boxes.filter(b=>['待装箱','装箱中'].includes(b.status));
+  openModal(`<div class="modal-head"><div><h3>批量分配</h3><div class="muted">共 ${groups.length} 个商品；批量分配到同一个去向。每个商品的数量默认取全部剩余库存，也可逐项修改。</div></div><button class="btn icon" onclick="closeModal()">×</button></div>
+  <div class="toolbar"><button class="btn small" onclick="setBatchAllToRemaining()">全部填入剩余</button><button class="btn small" onclick="setBatchAllZero()">全部清零</button></div>
+  <div class="table-wrap"><table><thead><tr><th>商品</th><th>单位</th><th>待处理</th><th>本次分配</th></tr></thead><tbody>${groups.map((g,i)=>`<tr><td><b>${esc(g.itemName)}</b></td><td>${esc(g.unit||'')}</td><td>${qtyText(g.remaining,g.unit)}</td><td><input class="batch-qty" data-key="${esc(inventoryGroupKey(g))}" data-max="${g.remaining}" data-unit="${esc(g.unit)}" type="number" min="0" max="${g.remaining}" step="any" value="${g.remaining}" style="width:120px"></td></tr>`).join('')}</tbody></table></div>
+  <div class="form-grid" style="margin-top:12px"><div class="field full"><label>统一去向</label><select id="batchDest" onchange="toggleBatchDest()"><option value="box">海运箱</option><option value="home">家里留存</option><option value="other">其他</option></select></div>
+  <div class="field full" id="batchBoxField"><label>海运箱</label><select id="batchBox">${boxes.length?boxes.map(b=>`<option value="${b.id}">${esc(b.code)} · ${esc(b.status)}</option>`).join(''):'<option value="">暂无可用海运箱</option>'}</select></div>
+  <div class="field full hidden" id="batchOtherField"><label>其他去向</label><input id="batchOther" placeholder="例如：送人"></div></div>
+  <div class="notice">批量操作不会把数量直接写进单一采购记录。保存时，系统会把每个商品的本次数量按采购来源顺序分摊，并强制校验每笔采购不得超出原始数量。</div>
+  <div class="modal-foot"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveBatchAllocation()">批量确认分配</button></div>`);
+}
+function setBatchAllToRemaining(){document.querySelectorAll('.batch-qty').forEach(x=>x.value=x.dataset.max)}
+function setBatchAllZero(){document.querySelectorAll('.batch-qty').forEach(x=>x.value=0)}
+function toggleBatchDest(){const d=document.getElementById('batchDest').value;document.getElementById('batchBoxField').classList.toggle('hidden',d!=='box');document.getElementById('batchOtherField').classList.toggle('hidden',d!=='other')}
+async function saveBatchAllocation(){
+  const d=document.getElementById('batchDest').value;
+  if(d==='box'&&!document.getElementById('batchBox').value)return alert('请选择海运箱');
+  if(d==='other'&&!document.getElementById('batchOther').value.trim())return alert('请填写其他去向');
+  const inputs=[...document.querySelectorAll('.batch-qty')];
+  const jobs=[];
+  for(const el of inputs){
+    const q=num(el.value)||0;if(q<=0)continue;
+    const [item,unit='']=el.dataset.key.split('||'),g=inventoryGroups().find(x=>x.itemName===item&&x.unit===unit);
+    if(!g)return alert(`找不到库存：${item}`);
+    if(q>g.remaining+1e-9)return alert(`${item} 的分配数量不能超过剩余库存 ${qtyText(g.remaining,g.unit)}`);
+    jobs.push({item,unit,q,g});
+  }
+  if(!jobs.length)return alert('请至少填写一个大于 0 的分配数量');
+  for(const j of jobs){
+    let remain=j.q;
+    for(const p of j.g.sources){
+      if(remain<=1e-9)break;
+      const take=Math.min(remain,purchaseRemaining(p));
+      if(take<=0)continue;
+      S.allocations.push({id:id('al'),purchaseId:p.id,itemKey:j.item+'||'+j.unit,itemName:j.item,qtyValue:take,qtyUnit:j.unit,plannedQty:take,destinationType:d,destinationId:d==='box'?document.getElementById('batchBox').value:null,destinationLabel:d==='other'?document.getElementById('batchOther').value.trim():'',createdAt:now(),packedQty:d==='box'?0:take});
+      remain-=take;
+    }
+    if(remain>1e-9)return alert(`${j.item} 分配失败：采购来源剩余数量不足`);
+    S.logs.push({id:id('log'),time:now(),type:'allocation',text:`批量分配 ${j.item} ${qtyText(j.q,j.unit)}`});
+  }
+  await saveState();closeModal();refresh();navigate('inventory');alert(`批量分配完成：${jobs.length} 个商品`);
+}
+
+
+function openBatchMove(){
+  const keys=selectedInventoryGroups();
+  if(!keys.length)return alert('请先勾选需要移动的商品');
+  const groups=keys.map(k=>{const [item,unit='']=k.split('||');return inventoryGroups().find(g=>g.itemName===item&&g.unit===unit)}).filter(Boolean);
+  const allocations=groups.flatMap(g=>movableAllocationsForGroup(g)).filter(a=>a.plannedQty>0);
+  if(!allocations.length)return alert('所选商品没有可以移动的分配记录');
+  const boxes=S.boxes.filter(b=>!['已到货','查验完成'].includes(b.status));
+  openModal(`<div class="modal-head"><div><h3>批量移动</h3><div class="muted">选择多个分配记录，统一移动到同一目标去向。</div></div><button class="btn icon" onclick="closeModal()">×</button></div>
+  <div class="table-wrap"><table><thead><tr><th>选择</th><th>商品</th><th>当前去向</th><th>可移动</th><th>本次移动</th></tr></thead><tbody>
+  ${allocations.map(a=>`<tr><td><input class="bm-check" type="checkbox" value="${a.id}" checked></td><td>${esc(a.itemName)}</td><td>${esc(allocationDisplayDestination(a))}</td><td>${qtyText(a.plannedQty,a.qtyUnit)}</td><td><input class="bm-qty" data-id="${a.id}" data-max="${a.plannedQty}" type="number" min="0" max="${a.plannedQty}" step="any" value="${a.plannedQty}" style="width:110px"></td></tr>`).join('')}
+  </tbody></table></div>
+  <div class="form-grid" style="margin-top:12px"><div class="field full"><label>统一新去向</label><select id="bmDest" onchange="toggleBatchMoveDest()"><option value="box">海运箱</option><option value="home">家里</option><option value="other">其他</option></select></div>
+  <div class="field full" id="bmBoxField"><label>目标箱子</label><select id="bmBox">${boxes.length?boxes.map(b=>`<option value="${b.id}">${esc(b.code)} · ${esc(b.status)}</option>`).join(''):'<option value="">暂无可用箱子</option>'}</select></div>
+  <div class="field full hidden" id="bmOtherField"><label>其他去向</label><input id="bmOther" placeholder="例如：送人"></div></div>
+  <div class="notice">系统会强制限制移动数量不能超过当前去向的数量。涉及已封箱或运输中的箱子时会先确认并恢复为装箱中。</div>
+  <div class="modal-foot"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveBatchMove()">执行批量移动</button></div>`);
+}
+function toggleBatchMoveDest(){const d=document.getElementById('bmDest').value;document.getElementById('bmBoxField').classList.toggle('hidden',d!=='box');document.getElementById('bmOtherField').classList.toggle('hidden',d!=='other')}
+async function saveBatchMove(){
+  const d=document.getElementById('bmDest').value,targetId=d==='box'?document.getElementById('bmBox').value:null,other=d==='other'?document.getElementById('bmOther').value.trim():'';
+  if(d==='box'&&!targetId)return alert('请选择目标箱子');if(d==='other'&&!other)return alert('请填写其他去向');
+  const jobs=[...document.querySelectorAll('.bm-check:checked')].map(c=>({a:S.allocations.find(x=>x.id===c.value),q:num(document.querySelector(`.bm-qty[data-id="${c.value}"]`)?.value)||0})).filter(x=>x.a);
+  if(!jobs.length)return alert('请至少选择一条记录');
+  for(const {a,q} of jobs){if(q<=0||q>a.plannedQty+1e-9)return alert(`${a.itemName} 的移动数量无效`)}
+  const affected=new Set(jobs.flatMap(j=>[j.a.destinationType==='box'?j.a.destinationId:null,d==='box'?targetId:null].filter(Boolean)));
+  for(const bid of affected){const b=S.boxes.find(x=>x.id===bid);if(b&&['已到货','查验完成'].includes(b.status))return alert(`箱子 ${b.code} 已到货/完成查验，不能移动`)}
+  const reopen=[...affected].map(x=>S.boxes.find(b=>b.id===x)).filter(Boolean).filter(b=>['已封箱','国内运输','国际运输'].includes(b.status));
+  if(reopen.length&&!confirm(`以下箱子会恢复为“装箱中”：${reopen.map(b=>b.code).join('、')}。继续？`))return;
+  reopen.forEach(b=>{b.status='装箱中';b.sealedAt=null});
+  for(const {a,q} of jobs){
+    const sourceName=allocationDisplayDestination(a),oldQty=Number(a.plannedQty)||0,oldPacked=a.packedQty==null?null:Number(a.packedQty);
+    if(q>=oldQty-1e-9){a.destinationType=d;a.destinationId=targetId;a.destinationLabel=other;a.packedQty=d==='box'?0:q}
+    else{a.plannedQty=oldQty-q;if(oldPacked!=null)a.packedQty=Math.max(0,oldPacked-q);S.allocations.push({...a,id:id('al'),plannedQty:q,qtyValue:q,destinationType:d,destinationId:targetId,destinationLabel:other,createdAt:now(),packedQty:d==='box'?0:q});}
+    S.logs.push({id:id('log'),time:now(),type:'move',text:`${a.itemName} 移动 ${qtyText(q,a.qtyUnit)}：${sourceName} → ${d==='box'?boxCode(targetId):(d==='home'?'家里':other)}`});
+  }
+  await saveState();closeModal();refresh();navigate('inventory');alert(`已移动 ${jobs.length} 条记录`);
+}
+function nextBoxCode(){const pre=S.settings.prefix||'Y';let max=0;S.boxes.forEach(b=>{const m=String(b.code||'').match(new RegExp('^'+pre.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\$&')+'(\\d+)$'));if(m)max=Math.max(max,Number(m[1]))});return pre+(max+1)}
+function boxCode(idv){return S.boxes.find(b=>b.id===idv)?.code||'—'}
+function openNewBox(){
+  const suggested=nextBoxCode();
+  openModal(`<div class="modal-head"><div><h3>新建海运箱</h3><div class="muted">箱号默认自动生成，可手动修改</div></div><button class="btn icon" onclick="closeModal()">×</button></div>
+  <div class="form-grid">
+    <div class="field"><label>箱号</label><input id="nbCode" value="${esc(suggested)}"></div>
+    <div class="field"><label>箱体重量 kg</label><input id="nbTare" type="number" min="0" step="0.01" value="0"></div>
+    <div class="field"><label>箱型</label><input id="nbType" placeholder="大号纸箱"></div>
+    <div class="field full"><label>备注</label><textarea id="nbNote" placeholder="可选"></textarea></div>
+  </div><div class="modal-foot"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveNewBox()">创建</button></div>`);
+}
+async function saveNewBox(){
+  const code=document.getElementById('nbCode').value.trim();if(!code)return alert('请输入箱号');if(S.boxes.some(b=>b.code===code))return alert('箱号已存在');
+  const b={id:id('box'),code,status:'待装箱',tareWeightKg:num(document.getElementById('nbTare').value)||0,type:document.getElementById('nbType').value.trim(),note:document.getElementById('nbNote').value,actualTotalWeightKg:0,domesticCarrier:'',domesticTrackingNo:'',dispatchDate:'',internationalCarrier:'',internationalTrackingNo:'',seaNo:'',eta:'',arrivedDate:'',createdAt:now(),sealedAt:null};
+  S.boxes.push(b);S.logs.push({id:id('log'),time:now(),type:'box',text:`新建 ${code}`});await saveState();closeModal();refresh();openBox(b.id)
+}
+
+function allocationDisplayDestination(a){
+  if(a.destinationType==='box')return boxCode(a.destinationId);
+  if(a.destinationType==='home')return '家里';
+  return a.destinationLabel||'其他';
+}
+function movableAllocationsForGroup(g){
+  return S.allocations.filter(a=>a.itemKey===inventoryGroupKey(g)&&Number(a.plannedQty)>0);
+}
+function openMoveAllocation(aid){
+  const a=S.allocations.find(x=>x.id===aid); if(!a)return;
+  const boxes=S.boxes.filter(b=>b.id!==a.destinationId && !['已到货','查验完成'].includes(b.status));
+  openModal(`<div class="modal-head"><div><h3>移动库存</h3><div class="muted">${esc(a.itemName)} · 当前：${esc(allocationDisplayDestination(a))} · 可移动 ${qtyText(a.plannedQty,a.qtyUnit)}</div></div><button class="btn icon" onclick="closeModal()">×</button></div>
+  <div class="form-grid">
+    <div class="field"><label>移动数量</label><input id="mvQty" type="number" min="0" max="${a.plannedQty}" step="any" value="${a.plannedQty}"></div>
+    <div class="field"><label>单位</label><input value="${esc(a.qtyUnit||'')}" readonly></div>
+    <div class="field full"><label>新去向</label><select id="mvDest" onchange="toggleMoveDest()"><option value="box">海运箱</option><option value="home">家里</option><option value="other">其他</option></select></div>
+    <div class="field full" id="mvBoxField"><label>目标箱子</label><select id="mvBox">${boxes.length?boxes.map(b=>`<option value="${b.id}">${esc(b.code)} · ${esc(b.status)}</option>`).join(''):'<option value="">暂无可选箱子</option>'}</select></div>
+    <div class="field full hidden" id="mvOtherField"><label>其他去向</label><input id="mvOther" placeholder="例如：送人"></div>
+  </div>
+  <div class="notice">支持箱子 ↔ 箱子、箱子 ↔ 家里、家里 ↔ 箱子自由移动。移动不会改变该笔采购的总库存，只改变去向；部分移动会自动拆分记录。</div>
+  <div class="modal-foot"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveMoveAllocation('${aid}')">确认移动</button></div>`);
+}
+function toggleMoveDest(){const d=document.getElementById('mvDest').value;document.getElementById('mvBoxField').classList.toggle('hidden',d!=='box');document.getElementById('mvOtherField').classList.toggle('hidden',d!=='other')}
+async function saveMoveAllocation(aid){
+  const a=S.allocations.find(x=>x.id===aid); if(!a)return;
+  const q=num(document.getElementById('mvQty').value)||0,d=document.getElementById('mvDest').value,targetId=d==='box'?document.getElementById('mvBox').value:null,other=d==='other'?document.getElementById('mvOther').value.trim():'';
+  if(q<=0||q>a.plannedQty+1e-9)return alert('移动数量必须在 0 到当前分配数量之间');
+  if(d==='box'&&!targetId)return alert('请选择目标箱子');
+  if(d==='other'&&!other)return alert('请填写其他去向');
+  const same=(d==='box'&&a.destinationType==='box'&&targetId===a.destinationId)||(d==='home'&&a.destinationType==='home')||(d==='other'&&a.destinationType==='other'&&other===a.destinationLabel);
+  if(same)return alert('目标去向与当前相同');
+  const affected=new Set();
+  if(a.destinationType==='box')affected.add(a.destinationId);
+  if(d==='box')affected.add(targetId);
+  for(const bid of affected){const b=S.boxes.find(x=>x.id===bid);if(b&&['已到货','查验完成'].includes(b.status))return alert(`箱子 ${b.code} 已到货/完成查验，不能移动库存`);}
+  const reopen=[...affected].map(x=>S.boxes.find(b=>b.id===x)).filter(Boolean).filter(b=>['已封箱','国内运输','国际运输'].includes(b.status));
+  if(reopen.length&&!confirm(`本次移动涉及 ${reopen.map(b=>b.code).join('、')}，这些箱子会恢复为“装箱中”。继续？`))return;
+  reopen.forEach(b=>{b.status='装箱中';b.sealedAt=null});
+  const sourceName=allocationDisplayDestination(a), oldQty=Number(a.plannedQty)||0, oldPacked=a.packedQty==null?null:Number(a.packedQty);
+  if(q>=oldQty-1e-9){
+    a.destinationType=d;a.destinationId=targetId;a.destinationLabel=other;
+    a.packedQty=d==='box'?0:q;
+  }else{
+    a.plannedQty=oldQty-q;
+    if(oldPacked!=null)a.packedQty=Math.max(0,oldPacked-q);
+    S.allocations.push({...a,id:id('al'),plannedQty:q,qtyValue:q,destinationType:d,destinationId:targetId,destinationLabel:other,createdAt:now(),packedQty:d==='box'?0:q});
+  }
+  S.logs.push({id:id('log'),time:now(),type:'move',text:`${a.itemName} 移动 ${qtyText(q,a.qtyUnit)}：${sourceName} → ${d==='box'?boxCode(targetId):(d==='home'?'家里':other)}`});
+  await saveState();closeModal();refresh();navigate('inventory');
+}
+function boxLines(b){return S.allocations.filter(a=>a.destinationType==='box'&&a.destinationId===b.id)}
+function groupForAllocation(a){
+  const key=a.itemKey||(`${a.itemName||''}||${a.qtyUnit||''}`);
+  return inventoryGroups().find(g=>g.itemName+'||'+(g.unit||'')===key);
+}
+function allocationUnitWeight(a){
+  const p=a.purchaseId?S.purchases.find(p=>p.id===a.purchaseId):null;
+  if(p&&Number(p.qtyValue)) return (Number(p.weightKg)||0)/Number(p.qtyValue);
+  const g=groupForAllocation(a);
+  if(!g || !g.rawQty) return 0;
+  return (g.weightKg||0)/g.rawQty;
+}
+function allocationPlannedWeight(a){
+  return allocationUnitWeight(a)*(Number(a.plannedQty)||0);
+}
+function allocationPackedWeight(a){
+  return allocationUnitWeight(a)*(Number(a.packedQty ?? a.plannedQty)||0);
+}
+function estimatedBoxGoodsWeight(b){
+  return sum(boxLines(b),allocationPlannedWeight);
+}
+function actualPlannedBoxGoodsWeight(b){
+  return sum(boxLines(b),allocationPackedWeight);
+}
+// backward-compatible aliases
+function estBoxGoodsWeight(b){return actualPlannedBoxGoodsWeight(b)}
+function plannedBoxGoodsWeight(b){return estimatedBoxGoodsWeight(b)}
+function renderBoxes(){
+  const q=document.getElementById('boxSearch').value.toLowerCase(),st=document.getElementById('boxStatus').value;
+  const rows=S.boxes.filter(b=>(st==='all'||b.status===st)&&(!q||[b.code,b.seaNo,b.domesticTrackingNo,b.internationalTrackingNo].join(' ').toLowerCase().includes(q))).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+  document.getElementById('boxesBody').innerHTML=rows.length?rows.map(b=>`<tr><td><b>${esc(b.code)}</b></td><td>${statusBadge(b.status)}</td><td>${boxLines(b).length}</td><td>${fmtNum(plannedBoxGoodsWeight(b))} kg</td><td>${fmtNum(b.tareWeightKg)} kg</td><td>${b.actualTotalWeightKg?fmtNum(b.actualTotalWeightKg)+' kg':'—'}</td><td>${esc(b.seaNo||'—')}</td><td>${esc(b.eta||'—')}</td><td><button class="btn small primary" onclick="openBox('${b.id}')">打开</button></td></tr>`).join(''):`<tr><td colspan="9"><div class="empty">暂无海运箱</div></td></tr>`;
+}
+function openBox(bid){const b=S.boxes.find(x=>x.id===bid);if(!b)return;
+  const lines=boxLines(b);
+  const actions=b.status==='待装箱'?`<button class="btn primary" onclick="startPacking('${b.id}')">开始装箱</button>`:
+    b.status==='装箱中'?`<button class="btn primary" onclick="savePacking('${b.id}')">保存装箱</button><button class="btn success" onclick="sealBox('${b.id}')">核查并封箱</button>`:
+    `<button class="btn" onclick="openLogistics('${b.id}')">编辑物流</button><button class="btn" onclick="printBox('${b.id}')">打印装箱单</button><button class="btn danger" onclick="reopenBox('${b.id}')">重新开箱</button>`;
+  openModal(`<div class="modal-head"><div><h3>${esc(b.code)} ${statusBadge(b.status)}</h3><div class="muted">创建于 ${fmtDate(b.createdAt)} ${b.seaNo?'· 海运号 '+esc(b.seaNo):''}</div></div><button class="btn icon" onclick="closeModal()">×</button></div>
+  <div class="detail-grid"><div class="detail"><label>计划商品预计总重量</label><strong>${fmtNum(estimatedBoxGoodsWeight(b))} kg</strong></div><div class="detail"><label>箱体重量</label><strong>${fmtNum(b.tareWeightKg)} kg</strong></div><div class="detail"><label>实际整箱重量</label>${b.status==='装箱中'?`<input id="boxActualWeight" type="number" min="0" step="0.01" value="${b.actualTotalWeightKg||''}" style="width:150px;border:1px solid var(--line);border-radius:8px;padding:7px"><div class="muted" style="margin-top:4px">整箱称重后填写</div>`:`<strong>${b.actualTotalWeightKg?fmtNum(b.actualTotalWeightKg)+' kg':'—'}</strong>`}</div><div class="detail"><label>预计到货</label><strong>${esc(b.eta||'—')}</strong></div></div>
+  <h4 style="margin-top:16px">装箱清单</h4>
+  <div class="table-wrap"><table><thead><tr><th>物品</th><th>计划数量</th><th>预计商品重量</th><th>实际装入</th><th>差异</th><th>操作</th></tr></thead><tbody>${lines.length?lines.map(a=>{const diff=a.packedQty===null||a.packedQty===undefined||a.packedQty===''?'':(Number(a.packedQty)-Number(a.plannedQty));const actual=b.status==='装箱中'?`<input id="pack_${a.id}" type="number" min="0" max="${a.plannedQty}" step="any" value="${a.packedQty??''}" style="width:110px;border:1px solid var(--line);border-radius:8px;padding:7px"> ${esc(a.qtyUnit||'')}`:(a.packedQty!=null?qtyText(a.packedQty,a.qtyUnit):'—');const ew=allocationPlannedWeight(a);return `<tr><td><b>${esc(a.itemName)}</b></td><td>${qtyText(a.plannedQty,a.qtyUnit)}</td><td>${fmtNum(ew)} kg</td><td>${actual}</td><td>${diff!==''?fmtNum(diff)+' '+(a.qtyUnit||''): '—'}</td><td><button class="btn small" onclick="openMoveAllocation('${a.id}')">移动</button></td></tr>`}).join(''):'<tr><td colspan="6"><div class="empty">暂无分配到此箱的商品</div></td></tr>'}</tbody></table></div>
+  <div class="notice" style="margin-top:12px">预计商品重量按库存来源的“总重量 ÷ 总数量”估算，再乘以本箱计划数量。实际海运重量仍以整箱称重为准；不要求逐项填写商品实际重量。</div>
+  <div class="modal-foot">${actions}<button class="btn" onclick="closeModal()">关闭</button></div>`);
+}
+async function startPacking(bid){const b=S.boxes.find(x=>x.id===bid);b.status='装箱中';b.boxStartedAt=now();boxLines(b).forEach(a=>{if(a.packedQty===undefined||a.packedQty===0)a.packedQty=null});await saveState();closeModal();openBox(bid);renderBoxes()}
+async function savePacking(bid){
+  const b=S.boxes.find(x=>x.id===bid);const rows=boxLines(b);let bad=false;
+  rows.forEach(a=>{const el=document.getElementById('pack_'+a.id);if(el){const v=num(el.value);if(Number.isFinite(v)&&v>=0&&v<=a.plannedQty)a.packedQty=v;else bad=true}});
+  if(bad)return alert('请检查实际装入数量；必须在 0 到计划数量之间');
+  const wt=num(document.getElementById('boxActualWeight')?.value);if(Number.isFinite(wt)&&wt>=0)b.actualTotalWeightKg=wt;
+  await saveState();closeModal();openBox(bid);renderBoxes();
+}
+function editPackingUI(bid){ /* kept for extension */ }
+async function sealBox(bid){
+  const b=S.boxes.find(x=>x.id===bid),lines=boxLines(b);
+  for(const a of lines){
+    const el=document.getElementById('pack_'+a.id);
+    if(el){
+      const v=num(el.value);
+      if(!Number.isFinite(v)||v<0||v>a.plannedQty)return alert(`请检查 ${a.itemName} 的实际装入数量`);
+      a.packedQty=v;
+    }else if(a.packedQty==null){
+      const inp=prompt(`实际装入数量：${a.itemName}\n计划 ${qtyText(a.plannedQty,a.qtyUnit)}`,a.plannedQty);
+      const v=num(inp);if(!Number.isFinite(v)||v<0||v>a.plannedQty)return alert('实际数量必须在 0 到计划数量之间');a.packedQty=v;
+    }
+  }
+  const inlineWt=document.getElementById('boxActualWeight');
+  let actual=inlineWt?num(inlineWt.value):NaN;
+  if(!Number.isFinite(actual))actual=parseFloat(prompt('请输入实际整箱重量（kg）',b.actualTotalWeightKg||''));
+  if(!Number.isFinite(actual)||actual<0)return;
+  const diff=lines.filter(a=>Math.abs(Number(a.packedQty)-Number(a.plannedQty))>1e-9);
+  if(diff.length&&!confirm('存在计划数量与实际装入数量差异，确认仍然封箱吗？'))return;
+  b.actualTotalWeightKg=actual;b.status='已封箱';b.sealedAt=now();
+  S.logs.push({id:id('log'),time:now(),type:'seal',text:`${b.code} 封箱，整箱 ${actual} kg`});
+  await saveState();closeModal();refresh();openBox(bid);
+}
+async function reopenBox(bid){const b=S.boxes.find(x=>x.id===bid);if(!confirm('重新开箱后可以修改装箱数量；是否继续？'))return;b.status='装箱中';await saveState();closeModal();openBox(bid)}
+function openLogistics(bid){const b=S.boxes.find(x=>x.id===bid);openModal(`<div class="modal-head"><div><h3>${esc(b.code)} · 物流信息</h3></div><button class="btn icon" onclick="closeModal()">×</button></div>
+<div class="form-grid"><div class="field"><label>国内物流公司</label><input id="lgDC" value="${esc(b.domesticCarrier||'')}"></div><div class="field"><label>国内物流单号</label><input id="lgDN" value="${esc(b.domesticTrackingNo||'')}"></div><div class="field"><label>寄出日期</label><input id="lgDD" type="date" value="${esc(b.dispatchDate||'')}"></div><div class="field"><label>国际物流公司</label><input id="lgIC" value="${esc(b.internationalCarrier||'')}"></div><div class="field"><label>国际物流单号</label><input id="lgIN" value="${esc(b.internationalTrackingNo||'')}"></div><div class="field"><label>海运号</label><input id="lgSN" value="${esc(b.seaNo||'')}"></div><div class="field"><label>预计到货日期</label><input id="lgETA" type="date" value="${esc(b.eta||'')}"></div><div class="field"><label>实际到货日期</label><input id="lgArr" type="date" value="${esc(b.arrivedDate||'')}"></div></div><div class="modal-foot"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveLogistics('${b.id}')">保存</button></div>`)}
+async function saveLogistics(bid){const b=S.boxes.find(x=>x.id===bid);Object.assign(b,{domesticCarrier:document.getElementById('lgDC').value.trim(),domesticTrackingNo:document.getElementById('lgDN').value.trim(),dispatchDate:document.getElementById('lgDD').value,internationalCarrier:document.getElementById('lgIC').value.trim(),internationalTrackingNo:document.getElementById('lgIN').value.trim(),seaNo:document.getElementById('lgSN').value.trim(),eta:document.getElementById('lgETA').value,arrivedDate:document.getElementById('lgArr').value});
+  if(b.arrivedDate)b.status='已到货'; else if(b.internationalTrackingNo||b.seaNo)b.status='国际运输'; else if(b.domesticTrackingNo)b.status='国内运输';
+  await saveState();closeModal();refresh();navigate('logistics');
+}
+function renderLogistics(){const q=document.getElementById('logSearch').value.toLowerCase();const rows=S.boxes.filter(b=>!q||[b.code,b.seaNo,b.domesticTrackingNo,b.internationalTrackingNo,b.domesticCarrier,b.internationalCarrier].join(' ').toLowerCase().includes(q));document.getElementById('logBody').innerHTML=rows.length?rows.map(b=>`<tr><td><b>${esc(b.code)}</b></td><td>${statusBadge(b.status)}</td><td>${esc(b.domesticCarrier||'—')}</td><td>${esc(b.domesticTrackingNo||'—')}</td><td>${esc(b.internationalCarrier||'—')}</td><td>${esc(b.internationalTrackingNo||'—')}</td><td>${esc(b.seaNo||'—')}</td><td>${esc(b.eta||'—')}</td><td><button class="btn small" onclick="openLogistics('${b.id}')">编辑</button></td></tr>`).join(''):`<tr><td colspan="9"><div class="empty">暂无物流数据</div></td></tr>`}
+
+function inspectionFor(bid){return S.inspections.find(x=>x.boxId===bid)}
+function renderInspection(){const q=document.getElementById('inspSearch').value.toLowerCase(),st=document.getElementById('inspStatus').value;const rows=S.boxes.filter(b=>b.status==='已到货'||b.status==='查验完成').filter(b=>!q||[b.code,b.seaNo].join(' ').toLowerCase().includes(q)).map(b=>({b,i:inspectionFor(b.id)})).filter(x=>st==='all'||(st==='待查验'&&!x.i)||(st==='异常'&&x.i?.status==='异常')||(st==='已完成'&&x.i?.status==='已完成'));document.getElementById('inspBody').innerHTML=rows.length?rows.map(x=>`<tr><td><b>${esc(x.b.code)}</b></td><td>${statusBadge(x.b.status)}</td><td>${esc(x.b.seaNo||'—')}</td><td>${fmtNum(x.b.actualTotalWeightKg)} kg</td><td>${esc(x.b.arrivedDate||'—')}</td><td>${statusBadge(x.i?.status||'待查验')}</td><td><button class="btn small primary" onclick="openInspection('${x.b.id}')">查验</button></td></tr>`).join(''):`<tr><td colspan="7"><div class="empty">暂无符合条件的到货箱</div></td></tr>`}
+function openInspection(bid){
+  const b=S.boxes.find(x=>x.id===bid),lines=boxLines(b);let ins=inspectionFor(bid);if(!ins){ins={id:id('insp'),boxId:bid,status:'待查验',arrivedDate:b.arrivedDate||localDate(),items:lines.map(a=>({allocationId:a.id,itemName:a.itemName,unit:a.qtyUnit,expectedQty:Number(a.packedQty||0),actualQty:null,issue:'',photo:null})),note:'',createdAt:now()}}
+  else {const existing=new Map(ins.items.map(x=>[x.allocationId,x]));ins.items=lines.map(a=>existing.get(a.id)||({allocationId:a.id,itemName:a.itemName,unit:a.qtyUnit,expectedQty:Number(a.packedQty||0),actualQty:null,issue:'',photo:null}));}
+  const body=ins.items.map(it=>`<tr><td>${esc(it.itemName)}</td><td>${qtyText(it.expectedQty,it.unit)}</td><td><input id="ins_${it.allocationId}" style="width:100px;border:1px solid var(--line);border-radius:8px;padding:7px" type="number" min="0" step="any" value="${it.actualQty??''}" onchange="setInsVal('${it.allocationId}',this.value)"> <button class="btn small" type="button" onclick="document.getElementById('photo_${it.allocationId}').click()">📷${it.photo?'✓':''}</button><input id="photo_${it.allocationId}" class="hidden" type="file" accept="image/*" capture="environment" onchange="attachInspectionPhoto('${it.allocationId}',this.files[0])"></td><td id="diff_${it.allocationId}">${it.actualQty==null?'—':fmtNum(it.actualQty-it.expectedQty)}</td><td>${esc(it.issue||'')}</td></tr>`).join('');
+  openModal(`<div class="modal-head"><div><h3>${esc(b.code)} · 到货查验</h3><div class="muted">海运号：${esc(b.seaNo||'—')} · 整箱重量：${fmtNum(b.actualTotalWeightKg)} kg</div></div><button class="btn icon" onclick="closeModal()">×</button></div>
+  <div class="table-wrap"><table><thead><tr><th>物品</th><th>应有数量</th><th>实际数量</th><th>差异</th><th>异常</th></tr></thead><tbody>${body||'<tr><td colspan="5"><div class="empty">封箱时没有装箱明细</div></td></tr>'}</tbody></table></div>
+  <div class="form-grid" style="margin-top:12px"><div class="field full"><label>整体备注</label><textarea id="insNote">${esc(ins.note||'')}</textarea></div></div>
+  <div class="notice">手机端还可为异常项拍照。电脑端这里先支持数量核查和备注。</div>
+  <div class="modal-foot"><button class="btn" onclick="closeModal()">关闭</button><button class="btn primary" onclick="saveInspection('${b.id}')">完成查验</button></div>`);
+  window._activeInspection=ins;
+}
+function setInsVal(aid,v){if(!window._activeInspection)return;const it=window._activeInspection.items.find(x=>x.allocationId===aid);if(!it)return;it.actualQty= num(v);document.getElementById('diff_'+aid).textContent=Number.isFinite(it.actualQty)?fmtNum(it.actualQty-it.expectedQty):'—'}
+async function attachInspectionPhoto(aid,file){if(!file||!window._activeInspection)return;const it=window._activeInspection.items.find(x=>x.allocationId===aid);if(!it)return;it.photo=await compressImage(file);const btn=document.querySelector(`button[onclick=\"document.getElementById('photo_${aid}').click()\"]`);if(btn)btn.textContent='📷✓'}
+function compressImage(file){return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=()=>{const max=1280,scale=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext('2d').drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',.78))};img.onerror=reject;img.src=fr.result};fr.onerror=reject;fr.readAsDataURL(file)})}
+async function saveInspection(bid){const b=S.boxes.find(x=>x.id===bid),ins=window._activeInspection;if(!ins)return;ins.note=document.getElementById('insNote').value;let complete=true,abnormal=false;ins.items.forEach(it=>{if(it.actualQty==null||!Number.isFinite(it.actualQty)){complete=false}else if(Math.abs(it.actualQty-it.expectedQty)>1e-9)abnormal=true});if(!complete)return alert('请先填写所有商品的实际到货数量');ins.status=abnormal?'异常':'已完成';ins.updatedAt=now();const idx=S.inspections.findIndex(x=>x.id===ins.id);if(idx>=0)S.inspections[idx]=ins;else S.inspections.push(ins);if(!abnormal)b.status='查验完成';S.logs.push({id:id('log'),time:now(),type:'inspection',text:`${b.code} 查验 ${ins.status}`});await saveState();closeModal();refresh();navigate('inspection')}
+function printBox(bid){const b=S.boxes.find(x=>x.id===bid),lines=boxLines(b);const html=`<html><head><title>${b.code}装箱单</title><style>body{font-family:Arial,"Microsoft YaHei";padding:30px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:8px;text-align:left}h1{margin-top:0}</style></head><body><h1>${esc(b.code)} 装箱清单</h1><p>海运号：${esc(b.seaNo||'—')}　整箱重量：${fmtNum(b.actualTotalWeightKg)} kg</p><table><tr><th>物品</th><th>数量</th><th>订单号</th></tr>${lines.map(a=>{const p=S.purchases.find(p=>p.id===a.purchaseId)||{};return `<tr><td>${esc(a.itemName)}</td><td>${qtyText(a.packedQty||0,a.qtyUnit)}</td><td>${esc(p.orderNo||'—')}</td></tr>`}).join('')}</table><script>window.print()<\/script></body></html>`;const w=window.open();w.document.write(html);w.document.close()}
+function renderFinance(){const y=new Date().getFullYear(),m=String(new Date().getMonth()+1).padStart(2,'0'),total=sum(S.purchases,p=>p.priceRmb),yy=sum(S.purchases,p=>(p.enteredAt||'').startsWith(String(y))?p.priceRmb:0),mm=sum(S.purchases,p=>(p.enteredAt||'').startsWith(`${y}-${m}`)?p.priceRmb:0);document.getElementById('finTotal').textContent=fmtMoney(total);document.getElementById('finYear').textContent=fmtMoney(yy);document.getElementById('finMonth').textContent=fmtMoney(mm);document.getElementById('finYearLabel').textContent=String(y);document.getElementById('finMonthLabel').textContent=`${y}-${m}`;document.getElementById('finCount').textContent=S.purchases.filter(p=>!p.deleted).length;
+  const years={};S.purchases.filter(p=>!p.deleted).forEach(p=>{const k=(p.enteredAt||'').slice(0,4)||'未知';years[k]=(years[k]||0)+(p.priceRmb||0)});drawBars('yearChart',Object.entries(years).sort(), 'year');
+  const months={};for(let i=1;i<=12;i++)months[String(i).padStart(2,'0')]=0;S.purchases.filter(p=>!p.deleted).forEach(p=>{if((p.enteredAt||'').startsWith(String(y)))months[(p.enteredAt||'').slice(5,7)]=(months[(p.enteredAt||'').slice(5,7)]||0)+(p.priceRmb||0)});drawBars('monthChart',Object.entries(months), 'month');
+  const pm={};S.purchases.filter(p=>!p.deleted).forEach(p=>pm[p.itemName]=pm[p.itemName]||{count:0,qty:0,spend:0});S.purchases.filter(p=>!p.deleted).forEach(p=>{const x=pm[p.itemName];x.count++;x.qty+=p.qtyValue||0;x.spend+=p.priceRmb||0});document.getElementById('productSpendBody').innerHTML=Object.entries(pm).sort((a,b)=>b[1].spend-a[1].spend).slice(0,100).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.count}</td><td>${fmtNum(v.qty)}</td><td>${fmtMoney(v.spend)}</td></tr>`).join('')||'<tr><td colspan="4"><div class="empty">暂无采购记录</div></td></tr>';
+}
+function drawBars(idv,entries,type){const el=document.getElementById(idv);if(!entries.length){el.innerHTML='<div class="empty">暂无数据</div>';return}const max=Math.max(...entries.map(x=>x[1]),1);el.innerHTML=entries.map(([k,v])=>`<div class="bar"><b>${fmtMoney(v).replace('¥','')}</b><div style="height:${Math.max(2,v/max*170)}px"></div><span>${type==='month'?k+'月':k}</span></div>`).join('')}
+function renderMeds(){document.getElementById('medBody').innerHTML=S.meds.length?S.meds.map(m=>`<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.spec||'—')}</td><td>${qtyText(m.qtyValue,m.qtyUnit)}</td><td>${esc(m.expiry||'—')}</td><td>${esc(m.destination||'—')}</td><td class="wrap">${esc(m.note||'')}</td><td><button class="btn small" onclick="openMed('${m.id}')">编辑</button></td></tr>`).join(''):'<tr><td colspan="7"><div class="empty">暂无药品记录</div></td></tr>'}
+function openMed(mid){const m=mid?S.meds.find(x=>x.id===mid):null;openModal(`<div class="modal-head"><div><h3>${m?'编辑':'添加'}药品</h3></div><button class="btn icon" onclick="closeModal()">×</button></div><div class="form-grid"><div class="field"><label>药品名称</label><input id="medName" value="${esc(m?.name||'')}"></div><div class="field"><label>规格</label><input id="medSpec" value="${esc(m?.spec||'')}"></div><div class="field"><label>数量</label><input id="medQty" value="${m?qtyText(m.qtyValue,m.qtyUnit):''}"></div><div class="field"><label>有效期</label><input id="medExp" type="date" value="${esc(m?.expiry||'')}"></div><div class="field"><label>去向</label><input id="medDest" value="${esc(m?.destination||'')}"></div><div class="field"><label>备注</label><input id="medNote" value="${esc(m?.note||'')}"></div></div><div class="modal-foot"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveMed('${m?.id||''}')">保存</button></div>`)}
+async function saveMed(mid){const q=parseQty(document.getElementById('medQty').value);const obj={id:mid||id('med'),name:document.getElementById('medName').value.trim(),spec:document.getElementById('medSpec').value.trim(),qtyValue:q.value,qtyUnit:q.unit,expiry:document.getElementById('medExp').value,destination:document.getElementById('medDest').value,note:document.getElementById('medNote').value};if(!obj.name)return alert('请输入药品名称');const i=S.meds.findIndex(x=>x.id===obj.id);if(i>=0)S.meds[i]=obj;else S.meds.push(obj);await saveState();closeModal();refresh()}
+function renderSettings(){document.getElementById('setPrefix').value=S.settings.prefix||'Y';document.getElementById('setNextBox').value=nextBoxCode()}
+async function saveSettings(){const p=document.getElementById('setPrefix').value.trim()||'Y';S.settings.prefix=p;await saveState();renderSettings();alert('设置已保存')}
+function renderDataSummary(){const mode=window.__storageFallback?'IndexedDB不可用，当前使用localStorage备用':'IndexedDB';const d=[['采购记录',S.purchases.filter(p=>!p.deleted).length],['库存分配',S.allocations.length],['海运箱',S.boxes.length],['查验记录',S.inspections.length],['药品',S.meds.length],['存储方式',mode],['最后更新',new Date(S.meta.updatedAt).toLocaleString('zh-CN')]];document.getElementById('dataSummary').innerHTML=d.map(x=>`<div class="detail"><label>${esc(x[0])}</label><strong>${esc(String(x[1]))}</strong></div>`).join('')}
+function renderHistory(){document.getElementById('importHistory').innerHTML=S.importHistory.length?`<div class="list">${S.importHistory.slice().reverse().slice(0,30).map(x=>`<div class="list-item"><span>${fmtDate(x.time)} · ${esc(x.filename||'')}</span><b>${x.count} 条</b></div>`).join('')}</div>`:'<div class="empty">暂无导入记录</div>'}
+
+
+function parsePastedText(){
+  const text=document.getElementById('pasteInput').value;
+  if(!text.trim()){document.getElementById('pastePreview').innerHTML='<div class="notice warn">请先粘贴 Excel 表格内容。</div>';return;}
+  try{
+    const rows=parsePastedGrid(text);
+    importRows=mapRows(rows);
+    if(!importRows.length){
+      document.getElementById('pastePreview').innerHTML='<div class="notice danger">没有识别到有效数据。请确认复制的是 Excel 单元格区域，并且列顺序为：序号、物品名字、数量、重量(g)、商品名称、订单号、价格、单价。</div>';
+      return;
+    }
+    renderPastePreview();
+  }catch(e){
+    document.getElementById('pastePreview').innerHTML=`<div class="notice danger">解析失败：${esc(e.message)}</div>`;
+  }
+}
+function parsePastedGrid(text){
+  const lines=text.replace(/\r/g,'').split('\n').filter(x=>x.trim());
+  // Excel/Sheets 复制的表格通常以 Tab 分隔；也兼容逗号/分号文本。
+  const hasTab=lines.some(l=>l.includes('\t'));
+  const sep=hasTab?'\t':((lines[0].match(/,/g)||[]).length>=7?',':((lines[0].match(/;/g)||[]).length>=7?';':null));
+  if(sep) return parseDelimited(text,sep);
+  // 没有分隔符时，尽量将连续空白视为分隔；完整商品名称/订单号含空格时仍建议直接从 Excel 复制。
+  return lines.map(line=>line.trim().split(/\s{2,}/));
+}
+function renderPastePreview(){
+  const el=document.getElementById('pastePreview');
+  if(!importRows.length){el.innerHTML='';return;}
+  el.innerHTML=`<div class="page-head" style="margin-top:16px">
+    <div><h3>文本导入预览</h3><div class="muted">已识别 ${importRows.length} 条；确认后才会写入本地数据库</div></div>
+    <div class="actions"><button class="btn" onclick="importRows=[];el=document.getElementById('pastePreview');el.innerHTML=''">清空</button><button class="btn primary" onclick="confirmImport()">确认导入 ${importRows.length} 条</button></div>
+  </div>
+  ${renderRowsTable(importRows)}`;
+}
+
+async function handleFile(file){
+  if(!file)return;
+  const name=file.name.toLowerCase();
+  try{let rows;if(name.endsWith('.csv')||name.endsWith('.tsv')){const txt=await file.text();rows=parseDelimited(txt,name.endsWith('.tsv')?'\t':detectSep(txt));}
+    else {const buf=await file.arrayBuffer();rows=parseXLSX(buf)}
+    importRows=mapRows(rows);renderPreview();document.querySelector('[data-itab="excel"]').click();
+  }catch(e){console.error(e);alert('文件解析失败：'+e.message)}
+}
+function detectSep(t){const first=t.split(/\r?\n/).find(x=>x.trim())||'';return (first.match(/\t/g)||[]).length>(first.match(/,/g)||[]).length?'\t':','}
+function parseDelimited(txt,sep){return txt.split(/\r?\n/).filter(r=>r.trim()).map(line=>{const out=[];let cur='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(q&&line[i+1]==='"'){cur+='"';i++}else q=!q}else if(c===sep&&!q){out.push(cur);cur=''}else cur+=c}out.push(cur);return out})}
+function u8str(bytes){return new TextDecoder('utf-8').decode(bytes)}
+function readU16(a,o){return a[o]|a[o+1]<<8}function readU32(a,o){return (a[o]|a[o+1]<<8|a[o+2]<<16|a[o+3]<<24)>>>0}
+async function inflateRaw(bytes){const ds=new DecompressionStream('deflate-raw');const ab=await new Response(new Blob([bytes]).stream().pipeThrough(ds)).arrayBuffer();return new Uint8Array(ab)}
+async function parseZip(buf){
+  const a=new Uint8Array(buf), files={};let eocd=-1;
+  for(let i=a.length-22;i>=Math.max(0,a.length-65557);i--){if(readU32(a,i)===0x06054b50){eocd=i;break}}
+  if(eocd<0)throw new Error('无效 ZIP/XLSX 文件');
+  const cdSize=readU32(a,eocd+12), cdOff=readU32(a,eocd+16);let p=cdOff;
+  while(p<cdOff+cdSize){if(readU32(a,p)!==0x02014b50)break;const method=readU16(a,p+10),cSize=readU32(a,p+20),uSize=readU32(a,p+24),nLen=readU16(a,p+28),xLen=readU16(a,p+30),cLen=readU16(a,p+32);const name=u8str(a.slice(p+46,p+46+nLen));const dataOff=readU32(a,p+42);const lName=readU16(a,dataOff+26),lExtra=readU16(a,dataOff+28);const start=dataOff+30+lName+lExtra;const comp=a.slice(start,start+cSize);files[name]=method===0?comp:await inflateRaw(comp);p+=46+nLen+xLen+cLen}
+  return files
+}
+function xmlText(node){return node?.textContent||''}
+async function parseXLSX(buf){
+  const z=await parseZip(buf), wb=new DOMParser().parseFromString(u8str(z['xl/workbook.xml']),'application/xml'), rels=new DOMParser().parseFromString(u8str(z['xl/_rels/workbook.xml.rels']),'application/xml'), sheets=[...wb.querySelectorAll('sheet')];
+  if(!sheets.length)throw new Error('没有找到工作表');
+  const relMap={};[...rels.querySelectorAll('Relationship')].forEach(r=>relMap[r.getAttribute('Id')]=r.getAttribute('Target'));
+  let target=relMap[sheets[0].getAttribute('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')]||relMap[sheets[0].getAttribute('r:id')];
+  if(!target)target='worksheets/sheet1.xml'; if(target.startsWith('/'))target=target.slice(1);if(!target.startsWith('xl/'))target='xl/'+target;
+  const shared=z['xl/sharedStrings.xml']?parseSharedStrings(z['xl/sharedStrings.xml']):[];
+  const doc=new DOMParser().parseFromString(u8str(z[target]),'application/xml'),rows=[];
+  for(const r of doc.querySelectorAll('sheetData > row')){const arr=[];for(const c of r.children){if(c.tagName!=='c')continue;const ref=c.getAttribute('r')||'';const m=ref.match(/[A-Z]+/);const col=colNum(m?m[0]:'A');while(arr.length<col)arr.push('');const t=c.getAttribute('t'),v=c.querySelector('v');let val=v?xmlText(v):'';if(t==='s')val=shared[Number(val)]??val;else if(t==='inlineStr')val=xmlText(c.querySelector('t'));arr[col-1]=val}rows.push(arr)}return rows
+}
+function parseSharedStrings(bytes){const d=new DOMParser().parseFromString(u8str(bytes),'application/xml');return [...d.querySelectorAll('si')].map(si=>[...si.querySelectorAll('t')].map(x=>xmlText(x)).join(''))}
+function colNum(s){let n=0;for(const c of s)n=n*26+(c.charCodeAt(0)-64);return n}
+function mapRows(rows){
+  const headerIdx=rows.findIndex(r=>r.some(x=>String(x).trim()==='物品名字')&&r.some(x=>String(x).trim()==='订单号'));
+  const data=headerIdx>=0?rows.slice(headerIdx+1):rows;
+  return data.filter(r=>r.some(x=>String(x).trim())).map((r,i)=>{const get=j=>r[j]??'';const q=parseQty(get(2));const w=normKg(get(3))/1000;const pr=num(get(6))||0;return{id:id('p'),seq:get(0)||i+1,itemName:String(get(1)||'').trim(),qtyValue:q.value,qtyUnit:q.unit,weightKg:w,productName:String(get(4)||'').trim(),orderNo:String(get(5)||'').trim(),priceRmb:pr,enteredAt:now(),unitPrice:(q.value?pr/q.value:null),sourceImport:null}}).filter(x=>x.itemName)}
+function renderPreview(){
+  const el=document.getElementById('importPreview');if(!importRows.length){el.innerHTML='';return}
+  const dupKeys=new Set(), seen=new Set();importRows.forEach(r=>{const k=[r.itemName,r.orderNo,r.qtyValue,r.qtyUnit,r.priceRmb].join('|');if(seen.has(k))dupKeys.add(k);seen.add(k)});
+  el.innerHTML=`<div class="page-head"><div><h3>导入预览</h3><div class="muted">识别 ${importRows.length} 条；原表重量单位为 g，系统内部统一换算为 kg；重复记录将默认跳过</div></div><div class="actions"><button class="btn" onclick="importRows=[];renderPreview()">清空</button><button class="btn primary" onclick="confirmImport()">确认导入 ${importRows.length} 条</button></div></div><div class="table-wrap"><table><thead><tr><th>序号</th><th>物品名字</th><th>数量</th><th>重量(g)</th><th>商品名称</th><th>订单号</th><th>价格¥</th><th>单价¥</th></tr></thead><tbody>${importRows.slice(0,500).map((r,i)=>`<tr><td>${esc(r.seq)}</td><td><input data-row="${i}" data-k="itemName" value="${esc(r.itemName)}"></td><td><input data-row="${i}" data-k="qtyValue" type="number" value="${r.qtyValue}"> ${esc(r.qtyUnit)}</td><td><input data-row="${i}" data-k="weightKg" type="number" step="0.1" value="${r.weightKg*1000}"></td><td class="wrap"><input data-row="${i}" data-k="productName" value="${esc(r.productName)}" style="min-width:300px"></td><td><input data-row="${i}" data-k="orderNo" value="${esc(r.orderNo)}"></td><td><input data-row="${i}" data-k="priceRmb" type="number" step="0.01" value="${r.priceRmb}"></td><td>${r.unitPrice!=null?fmtMoney(r.unitPrice):'—'}</td></tr>`).join('')}</tbody></table></div>`;
+  el.querySelectorAll('input[data-row]').forEach(inp=>inp.addEventListener('input',e=>{const r=importRows[Number(e.target.dataset.row)];const k=e.target.dataset.k;r[k]=k==='itemName'||k==='productName'||k==='orderNo'?e.target.value:num(e.target.value);if(k==='weightKg')r[k]=(num(e.target.value)||0)/1000;if(k==='qtyValue')r.unitPrice=r.qtyValue? r.priceRmb/r.qtyValue:null;}));
+}
+async function confirmImport(){
+  const existing=new Set(S.purchases.filter(p=>!p.deleted).map(p=>[p.itemName,p.orderNo,p.qtyValue,p.qtyUnit,p.priceRmb].join('|')));let added=0,skipped=0;for(const r of importRows){const k=[r.itemName,r.orderNo,r.qtyValue,r.qtyUnit,r.priceRmb].join('|');if(existing.has(k)){skipped++;continue}r.sourceImport=now();S.purchases.push(r);existing.add(k);added++}
+  S.importHistory.push({id:id('imp'),time:now(),filename:'Excel/CSV导入',count:added,skipped});S.logs.push({id:id('log'),time:now(),type:'import',text:`导入 ${added} 条采购记录，跳过 ${skipped} 条重复`});importRows=[];await saveState();renderPreview();refresh();alert(`导入完成：${added} 条；重复跳过：${skipped} 条`);navigate('inventory')
+}
+async function handleOCR(file){
+  if(!file)return;const st=document.getElementById('ocrStatus');st.innerHTML='<div class="notice">正在加载 OCR 引擎…</div>';
+  try{
+    if(!window.Tesseract){await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js')}
+    st.innerHTML='<div class="notice">正在识别图片，第一次加载中文模型可能较慢…</div>';
+    const result=await Tesseract.recognize(file,'chi_sim+eng',{logger:m=>{if(m.status&&m.progress!=null)st.innerHTML=`<div class="notice">${esc(m.status)} ${(m.progress*100).toFixed(0)}%</div>`}});
+    const rows=ocrTable(result.data.text);ocrRows=mapRows(rows);document.getElementById('ocrPreview').innerHTML='<div class="notice">OCR 已完成。建议在导入前逐行检查并修正识别结果。</div>';renderOCRPreview();
+  }catch(e){st.innerHTML=`<div class="notice danger">OCR失败：${esc(e.message)}。请改用 Excel/CSV 导入。</div>`}
+}
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('无法加载 OCR 引擎'));document.head.appendChild(s)})}
+function ocrTable(text){return text.split(/\r?\n/).filter(x=>x.trim()).map(line=>line.split(/\t+/))}
+function renderOCRPreview(){document.getElementById('ocrPreview').innerHTML+=`<div class="page-head"><h3>OCR预览</h3><button class="btn primary" onclick="confirmOCR()">导入这些记录</button></div>${renderRowsTable(ocrRows)}`}
+function renderRowsTable(rows){return `<div class="table-wrap"><table><thead><tr><th>序号</th><th>物品</th><th>数量</th><th>重量</th><th>商品名称</th><th>订单号</th><th>价格</th><th>单价</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.seq)}</td><td>${esc(r.itemName)}</td><td>${qtyText(r.qtyValue,r.qtyUnit)}</td><td>${fmtNum(r.weightKg)} kg</td><td class="wrap">${esc(r.productName)}</td><td>${esc(r.orderNo)}</td><td>${fmtMoney(r.priceRmb)}</td><td>${r.unitPrice?fmtMoney(r.unitPrice):'—'}</td></tr>`).join('')||'<tr><td colspan="8"><div class="empty">OCR 没有识别出可用行。图片 OCR 对表格列可能不稳定，推荐使用 Excel。</div></td></tr>'}</tbody></table></div>`}
+async function confirmOCR(){importRows=ocrRows;await confirmImport();ocrRows=[]}
+
+function csvEscape(v){const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}
+function download(name,text,mime='text/plain'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:mime}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
+async function clearAllData(){
+  // Two-step confirmation. Do not rely on any external event binding.
+  if(!window.confirm('第一次确认\n\n确定要清除所有海运管理数据吗？\n\n采购记录、库存分配、海运箱、物流、查验及设置都会被清除。')) return;
+  if(!window.confirm('第二次确认\n\n这是不可撤销操作。确定继续清除全部数据吗？')) return;
+
+  try{
+    // Clear IndexedDB completely.
+    if(window.indexedDB){
+      await new Promise((resolve,reject)=>{
+        const req=indexedDB.deleteDatabase(DB_NAME);
+        req.onsuccess=()=>resolve();
+        req.onerror=()=>reject(req.error||new Error('IndexedDB 删除失败'));
+        req.onblocked=()=>resolve();
+      });
+    }
+    // Clear the fallback/local storage as well.
+    try{ localStorage.removeItem('shipping_manager_fallback'); }catch(e){}
+    try{ sessionStorage.removeItem('shipping_manager_fallback'); }catch(e){}
+
+    // Re-create a clean in-memory state.
+    S=defaultState();
+    try{ await saveState(); }catch(e){
+      console.warn('清空后重新保存空状态失败，但数据库已经清除',e);
+    }
+
+    // Reset any import/file state and refresh the entire UI.
+    if(typeof importRows!=='undefined') importRows=[];
+    document.querySelectorAll('input[type="file"]').forEach(x=>{try{x.value=''}catch(e){}});
+    if(typeof refresh==='function') refresh();
+    if(typeof navigate==='function') navigate('dashboard');
+
+    window.alert('清除完成：所有海运管理数据已删除，系统已恢复为空白状态。');
+  }catch(err){
+    console.error(err);
+    window.alert('清除失败：'+(err&&err.message?err.message:'未知错误')+'\n\n请关闭当前 HTML 后重新打开再试。');
+  }
+}
+window.clearAllData=clearAllData;
+
+function exportFullBackup(){download(`海运管理_${stamp()}.json`,JSON.stringify(S,null,2),'application/json')}
+function stamp(){const d=new Date();return d.toISOString().replace(/[:T]/g,'-').slice(0,16)}
+function exportMobilePackage(){const pack={type:'shipping-mobile-snapshot',version:1,createdAt:now(),sourceUpdatedAt:S.meta.updatedAt,data:{purchases:S.purchases.filter(p=>!p.deleted),allocations:S.allocations,boxes:S.boxes.map(b=>({...b})),inspections:S.inspections}};download(`海运管理_手机数据包_${stamp()}.json`,JSON.stringify(pack),'application/json')}
+async function importFullJSON(file){if(!file)return;try{const obj=JSON.parse(await file.text());if(!obj.purchases||!obj.boxes)throw new Error('JSON结构不是海运管理数据');if(!confirm('导入完整 JSON 会替换当前本地数据。请先确认已有备份。继续？'))return;S=obj;await saveState();refresh();alert('完整数据已恢复');navigate('dashboard')}catch(e){alert('恢复失败：'+e.message)}}
+async function importMobileResults(file){if(!file)return;try{const obj=JSON.parse(await file.text());if(obj.type!=='shipping-mobile-results')throw new Error('不是手机查验结果包');let added=0;for(const x of obj.inspections||[]){const i=S.inspections.findIndex(i=>i.boxId===x.boxId);if(i>=0)S.inspections[i]=x;else{S.inspections.push(x);added++}const b=S.boxes.find(b=>b.id===x.boxId);if(b&&x.status==='已完成')b.status='查验完成'}await saveState();refresh();alert(`已导入 ${obj.inspections?.length||0} 条查验结果`)}catch(e){alert('导入失败：'+e.message)}}
+function exportInspectionResults(){const pack={type:'shipping-mobile-results',version:1,createdAt:now(),inspections:S.inspections};download(`查验结果_${stamp()}.json`,JSON.stringify(pack),'application/json')}
+function exportPurchasesCSV(){const head=['序号','物品名字','数量','重量kg','商品名称','订单号','价格RMB','单价RMB','录入日期'];const body=S.purchases.filter(p=>!p.deleted).map(p=>[p.seq,p.itemName,qtyText(p.qtyValue,p.qtyUnit),p.weightKg,p.productName,p.orderNo,p.priceRmb,p.unitPrice,p.enteredAt?.slice(0,10)]);download('采购记录.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
+function exportInventoryCSV(){const head=['物品','单位','原始数量','已分配','待处理','家里','海运已装','采购金额'];const body=inventoryGroups().map(g=>[g.itemName,g.unit,g.rawQty,g.allocated,g.remaining,g.home,g.packedBox,g.spend]);download('库存.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
+function exportBoxesCSV(){const head=['箱号','状态','预计商品重量kg','箱体重量kg','实际整箱重量kg','海运号','国内物流','国内单号','国际物流','国际单号','预计到货','实际到货'];const body=S.boxes.map(b=>[b.code,b.status,plannedBoxGoodsWeight(b),b.tareWeightKg,b.actualTotalWeightKg,b.seaNo,b.domesticCarrier,b.domesticTrackingNo,b.internationalCarrier,b.internationalTrackingNo,b.eta,b.arrivedDate]);download('海运箱.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
+function exportInspectionsCSV(){const head=['箱号','查验状态','商品','应有数量','实际数量','差异','备注'];const body=[];S.inspections.forEach(i=>{const b=S.boxes.find(b=>b.id===i.boxId);i.items.forEach(x=>body.push([b?.code,i.status,x.itemName,x.expectedQty,x.actualQty,x.actualQty==null?'':x.actualQty-x.expectedQty,i.note||'']))});download('到货查验.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
+function doGlobalSearch(q){q=q.trim().toLowerCase();if(!q)return;const p=S.purchases.filter(x=>[x.itemName,x.productName,x.orderNo].join(' ').toLowerCase().includes(q)).slice(0,50);const b=S.boxes.filter(x=>[x.code,x.seaNo,x.domesticTrackingNo,x.internationalTrackingNo,x.domesticCarrier,x.internationalCarrier].join(' ').toLowerCase().includes(q));document.getElementById('searchHint').textContent=`搜索：${q}`;document.getElementById('searchResults').innerHTML=`<div class="grid2"><div class="card"><h3>采购记录 (${p.length})</h3>${p.length?`<div class="list">${p.map(x=>`<div class="list-item"><span><b>${esc(x.itemName)}</b><br><span class="muted">${esc(x.orderNo||'无订单号')}</span></span><b>${fmtMoney(x.priceRmb)}</b></div>`).join('')}</div>`:'<div class="empty">无</div>'}</div><div class="card"><h3>海运箱 (${b.length})</h3>${b.length?`<div class="list">${b.map(x=>`<div class="list-item"><span><b>${esc(x.code)}</b><br>${statusBadge(x.status)}</span><span>${esc(x.seaNo||'—')}</span></div>`).join('')}</div>`:'<div class="empty">无</div>'}</div></div>`;navigate('search')}
+function openModal(html){document.getElementById('modal').innerHTML=html;document.getElementById('modalBack').classList.add('open')}
+function closeModal(){document.getElementById('modalBack').classList.remove('open');document.getElementById('modal').innerHTML='';window._activeInspection=null}
+document.getElementById('modalBack').addEventListener('click',e=>{if(e.target.id==='modalBack')closeModal()});
+init();
+</script>
+</body>
+</html>
