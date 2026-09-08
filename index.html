@@ -236,8 +236,8 @@ td.wrap{white-space:normal;min-width:240px}
       <section class="page" id="page-data">
         <div class="page-head"><div><h2>数据管理</h2><div class="muted">所有数据保存在当前浏览器本地 IndexedDB</div></div></div>
         <div class="grid2">
-          <div class="card"><h3>完整备份</h3><p class="muted">适合电脑主端的完整备份与恢复。清除所有数据不可恢复，执行前会要求两次确认。</p><div class="toolbar"><button class="btn primary" id="btnExportFull" onclick="exportFullBackup()">导出完整 JSON</button><button class="btn" id="btnImportFull" onclick="document.getElementById('jsonInput').click()">导入 JSON（自动识别）</button><button class="btn danger" id="btnClearAll" onclick="window.clearAllData()" >清除所有数据</button><input id="jsonInput" type="file" accept=".json" class="hidden"></div></div>
-          <div class="card"><h3>手机数据包</h3><p class="muted">电脑 → 手机：先在电脑导出手机数据包，再在手机的“导入 JSON（自动识别）”中选择该文件即可。手机完成到货查验后，再导出“查验结果包”回电脑。</p><div class="toolbar"><button class="btn primary" id="btnExportMobile" onclick="exportMobilePackage()">导出手机数据包</button><button class="btn" id="btnImportMobile" onclick="document.getElementById('mobileResultInput').click()">导入手机查验结果</button><button class="btn" id="btnExportInspection" onclick="exportInspectionResults()">导出查验结果</button><input id="mobileResultInput" type="file" accept=".json" class="hidden"></div></div>
+          <div class="card"><h3>完整备份</h3><p class="muted">适合电脑主端的完整备份与恢复。清除所有数据不可恢复，执行前会要求两次确认。</p><div class="toolbar"><button class="btn primary" id="btnExportFull" onclick="exportFullBackup()">导出完整 JSON</button><button class="btn" id="btnImportFull">导入 JSON（自动识别）</button><button class="btn danger" id="btnClearAll" onclick="window.clearAllData()" >清除所有数据</button><input id="jsonInput" type="file" accept="application/json,.json" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0"></div></div>
+          <div class="card"><h3>手机数据包</h3><p class="muted">电脑 → 手机：先在电脑导出手机数据包，再在手机的“导入 JSON（自动识别）”中选择该文件即可。手机完成到货查验后，再导出“查验结果包”回电脑。</p><div class="toolbar"><button class="btn primary" id="btnExportMobile" onclick="exportMobilePackage()">导出手机数据包</button><button class="btn" id="btnImportMobile">导入手机查验结果</button><button class="btn" id="btnExportInspection" onclick="exportInspectionResults()">导出查验结果</button><input id="mobileResultInput" type="file" accept="application/json,.json" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0"></div></div>
         </div>
         <div class="card" style="margin-top:16px"><h3>Excel 导出</h3><div class="toolbar"><button class="btn" id="btnExportPurchases" onclick="exportPurchasesCSV()">采购记录 CSV</button><button class="btn" id="btnExportInventory" onclick="exportInventoryCSV()">库存 CSV</button><button class="btn" id="btnExportBoxes" onclick="exportBoxesCSV()">海运箱 CSV</button><button class="btn" id="btnExportInspections" onclick="exportInspectionsCSV()">查验 CSV</button></div></div>
         <div class="card" style="margin-top:16px"><h3>本地数据概况</h3><div class="detail-grid" id="dataSummary"></div></div>
@@ -348,21 +348,43 @@ async function init(){
   try{refresh()}catch(err){console.error('页面刷新错误：',err)}
 }
 function bindEvents(){
+  // JSON import bindings are deliberately installed first and defensively.
+  // This prevents an unrelated UI binding failure from making mobile import appear unresponsive.
+  const jsonInput=document.getElementById('jsonInput');
+  const btnImportFull=document.getElementById('btnImportFull');
+  if(btnImportFull && jsonInput){
+    btnImportFull.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();try{jsonInput.click()}catch(err){alert('无法打开文件选择器：'+err.message)}});
+    jsonInput.addEventListener('change',async e=>{
+      const f=e.target.files && e.target.files[0];
+      if(!f)return;
+      try{await importFullJSON(f)}catch(err){console.error(err);alert('JSON导入失败：'+(err&&err.message?err.message:err));}
+      finally{e.target.value='';}
+    });
+  }
+  const mobileResultInput=document.getElementById('mobileResultInput');
+  const btnImportMobile=document.getElementById('btnImportMobile');
+  if(btnImportMobile && mobileResultInput){
+    btnImportMobile.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();try{mobileResultInput.click()}catch(err){alert('无法打开文件选择器：'+err.message)}});
+    mobileResultInput.addEventListener('change',async e=>{
+      const f=e.target.files && e.target.files[0];
+      if(!f)return;
+      try{await importMobileResults(f)}catch(err){console.error(err);alert('查验结果导入失败：'+(err&&err.message?err.message:err));}
+      finally{e.target.value='';}
+    });
+  }
   document.querySelectorAll('#nav button[data-page]').forEach(b=>b.onclick=()=>navigate(b.dataset.page));
   document.getElementById('globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter')doGlobalSearch(e.target.value)});
   document.getElementById('fileInput').addEventListener('change',e=>handleFile(e.target.files[0]));
   const dz=document.getElementById('dropzone');['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag')}));['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag')}));dz.addEventListener('drop',e=>handleFile(e.dataTransfer.files[0]));
   document.getElementById('ocrInput').addEventListener('change',e=>handleOCR(e.target.files[0]));
-  document.getElementById('jsonInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importFullJSON(f);e.target.value=''});
-  document.getElementById('mobileResultInput').addEventListener('change',e=>importMobileResults(e.target.files[0]));
   ['invSearch','invStatus','invSensitivity','invDrug'].forEach(x=>document.getElementById(x).addEventListener('input',renderInventory));
   ['boxSearch','boxStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderBoxes));
   ['logSearch'].forEach(x=>document.getElementById(x).addEventListener('input',renderLogistics));
   ['inspSearch','inspStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderInspection));
   document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');['excel','paste','ocr','history'].forEach(k=>document.getElementById('itab-'+k).classList.toggle('hidden',t.dataset.itab!==k))});
   const dbind=(idv,fn)=>{const el=document.getElementById(idv);if(el)el.addEventListener('click',e=>{e.preventDefault();try{const r=fn();if(r&&r.catch)r.catch(err=>alert('操作失败：'+err.message))}catch(err){alert('操作失败：'+err.message)}})};
-  dbind('btnExportFull',exportFullBackup); dbind('btnImportFull',()=>document.getElementById('jsonInput').click()); dbind('btnClearAll',clearAllData);
-  dbind('btnExportMobile',exportMobilePackage); dbind('btnImportMobile',()=>document.getElementById('mobileResultInput').click()); dbind('btnExportInspection',exportInspectionResults);
+  dbind('btnExportFull',exportFullBackup); dbind('btnClearAll',clearAllData);
+  dbind('btnExportMobile',exportMobilePackage); dbind('btnExportInspection',exportInspectionResults);
   dbind('btnExportPurchases',exportPurchasesCSV); dbind('btnExportInventory',exportInventoryCSV); dbind('btnExportBoxes',exportBoxesCSV); dbind('btnExportInspections',exportInspectionsCSV);
 }
 function navigate(page){
@@ -1213,7 +1235,8 @@ function exportMobilePackage(){const pack={type:'shipping-mobile-snapshot',versi
 async function importFullJSON(file){
   if(!file)return;
   try{
-    const text=await file.text();
+    const text=(await file.text()).replace(/^\uFEFF/, '').trim();
+    if(!text)throw new Error('JSON文件为空');
     const obj=JSON.parse(text);
     // 支持电脑“完整 JSON”和“手机数据包”两种格式，避免手机端导入后看起来没有数据。
     if(obj&&obj.type==='shipping-mobile-snapshot'&&obj.data){
@@ -1251,7 +1274,7 @@ async function importFullJSON(file){
     alert(`完整数据导入成功：${S.purchases.length} 条采购、${S.boxes.length} 个海运箱。`);
   }catch(e){console.error(e);alert('导入失败：'+(e&&e.message?e.message:e));}
 }
-async function importMobileResults(file){if(!file)return;try{const obj=JSON.parse(await file.text());if(obj.type!=='shipping-mobile-results')throw new Error('不是手机查验结果包');let added=0;for(const x of obj.inspections||[]){const i=S.inspections.findIndex(i=>i.boxId===x.boxId);if(i>=0)S.inspections[i]=x;else{S.inspections.push(x);added++}const b=S.boxes.find(b=>b.id===x.boxId);if(b&&x.status==='已完成')b.status='查验完成'}await saveState();refresh();alert(`已导入 ${obj.inspections?.length||0} 条查验结果`)}catch(e){alert('导入失败：'+e.message)}}
+async function importMobileResults(file){if(!file)return;try{const raw=(await file.text()).replace(/^\uFEFF/, '').trim(); if(!raw)throw new Error('JSON文件为空'); const obj=JSON.parse(raw);if(obj.type!=='shipping-mobile-results')throw new Error('不是手机查验结果包');let added=0;for(const x of obj.inspections||[]){const i=S.inspections.findIndex(i=>i.boxId===x.boxId);if(i>=0)S.inspections[i]=x;else{S.inspections.push(x);added++}const b=S.boxes.find(b=>b.id===x.boxId);if(b&&x.status==='已完成')b.status='查验完成'}await saveState();refresh();alert(`已导入 ${obj.inspections?.length||0} 条查验结果`)}catch(e){alert('导入失败：'+e.message)}}
 function exportInspectionResults(){const pack={type:'shipping-mobile-results',version:1,createdAt:now(),inspections:S.inspections};download(`查验结果_${stamp()}.json`,JSON.stringify(pack),'application/json')}
 function exportPurchasesCSV(){const head=['序号','物品名字','数量','重量kg','商品名称','订单号','价格RMB','单价RMB','录入日期'];const body=S.purchases.filter(p=>!p.deleted).map(p=>[p.seq,p.itemName,qtyText(p.qtyValue,p.qtyUnit),p.weightKg,p.productName,p.orderNo,p.priceRmb,p.unitPrice,p.enteredAt?.slice(0,10)]);download('采购记录.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
 function exportInventoryCSV(){const head=['物品','原始数量','已分配','待分配','留存家里','海运中','采购金额'];const body=inventoryGroups().map(g=>[g.itemName,g.rawQty,g.allocated,g.remaining,g.home,g.packedBox,g.spend]);download('库存.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
@@ -1284,7 +1307,7 @@ function closeModal(){document.getElementById('modalBack').classList.remove('ope
 document.getElementById('modalBack').addEventListener('click',e=>{if(e.target.id==='modalBack')closeModal()});
 init();
 window.navigate=navigate;window.openEditPurchase=openEditPurchase;window.saveEditPurchase=saveEditPurchase;window.saveMoveAllocation=saveMoveAllocation;window.saveBatchMove=saveBatchMove;
-window.exportFullBackup=exportFullBackup;window.exportMobilePackage=exportMobilePackage;window.exportInspectionResults=exportInspectionResults;window.exportPurchasesCSV=exportPurchasesCSV;window.exportInventoryCSV=exportInventoryCSV;window.exportBoxesCSV=exportBoxesCSV;window.exportInspectionsCSV=exportInspectionsCSV;
+window.exportFullBackup=exportFullBackup;window.exportMobilePackage=exportMobilePackage;window.importFullJSON=importFullJSON;window.importMobileResults=importMobileResults;window.exportInspectionResults=exportInspectionResults;window.exportPurchasesCSV=exportPurchasesCSV;window.exportInventoryCSV=exportInventoryCSV;window.exportBoxesCSV=exportBoxesCSV;window.exportInspectionsCSV=exportInspectionsCSV;
 </script>
 <script>window.setItemSensitivity=setItemSensitivity;window.estimatedBoxTotalWeight=estimatedBoxTotalWeight;</script>
 <script>window.deleteInventoryItem=deleteInventoryItem;</script>
