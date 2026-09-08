@@ -180,7 +180,7 @@ td.wrap{white-space:normal;min-width:240px}
         <div class="card">
           <div class="toolbar">
       <input id="invSearch" placeholder="搜索商品名 / 订单号">
-      <select id="invStatus"><option value="all">全部状态</option><option value="pending">待分配</option><option value="partial">部分分配</option><option value="allocated">已全部分配</option></select>
+      <select id="invStatus"><option value="all">全部状态</option><option value="pending">待分配</option><option value="partial">部分分配</option><option value="allocated">已全部分配</option></select><select id="invSensitivity"><option value="all">全部货物</option><option value="non_sensitive">非敏感货</option><option value="sensitive">敏感货</option></select>
       <button class="btn primary" onclick="openBatchAllocate()">批量分配</button><button class="btn" onclick="openBatchMove()">批量移动</button>
       <span class="muted" id="invSelectedCount">已选 0 项</span>
     </div>
@@ -192,7 +192,7 @@ td.wrap{white-space:normal;min-width:240px}
         <div class="page-head"><div><h2>海运箱</h2><div class="muted">每个箱子独立管理；海运号只是物流字段</div></div><div class="actions"><button class="btn primary" onclick="openNewBox()">＋ 新建海运箱</button></div></div>
         <div class="card">
           <div class="toolbar"><input id="boxSearch" placeholder="搜索箱号 / 海运号 / 物流单号"><select id="boxStatus"><option value="all">全部状态</option><option>待装箱</option><option>装箱中</option><option>已封箱</option><option>国内运输</option><option>国际运输</option><option>已到货</option><option>查验完成</option></select></div>
-          <div class="table-wrap"><table><thead><tr><th>箱号</th><th>状态</th><th>商品行</th><th>预计商品重</th><th>箱体重</th><th>实际整箱重</th><th>海运号</th><th>预计到货</th><th>操作</th></tr></thead><tbody id="boxesBody"></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>箱号</th><th>状态</th><th>商品行</th><th>预计商品重</th><th>箱体重</th><th>预计整箱总重</th><th>实际整箱重</th><th>海运号</th><th>预计到货</th><th>操作</th></tr></thead><tbody id="boxesBody"></tbody></table></div>
         </div>
       </section>
 
@@ -332,6 +332,7 @@ async function init(){
     }catch(e){ S=defaultState(); }
     window.__storageFallback=true;
   }
+  S.itemMeta=S.itemMeta||{};
   for(const a of S.allocations||[]){
     if(a.purchaseId)continue;
     const matches=(S.purchases||[]).filter(p=>!p.deleted&&p.itemName===a.itemName&&p.qtyUnit===(a.qtyUnit||''));
@@ -349,7 +350,7 @@ function bindEvents(){
   document.getElementById('ocrInput').addEventListener('change',e=>handleOCR(e.target.files[0]));
   document.getElementById('jsonInput').addEventListener('change',e=>importFullJSON(e.target.files[0]));
   document.getElementById('mobileResultInput').addEventListener('change',e=>importMobileResults(e.target.files[0]));
-  ['invSearch','invStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderInventory));
+  ['invSearch','invStatus','invSensitivity'].forEach(x=>document.getElementById(x).addEventListener('input',renderInventory));
   ['boxSearch','boxStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderBoxes));
   ['logSearch'].forEach(x=>document.getElementById(x).addEventListener('input',renderLogistics));
   ['inspSearch','inspStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderInspection));
@@ -433,15 +434,31 @@ function inventoryGroups(){
 }
 function allocationByGroup(g){return S.allocations.filter(a=>a.itemKey===g.itemName+'||'+(g.unit||''))}
 function inventoryGroupKey(g){return g.itemName+'||'+(g.unit||'')}
+function itemSensitivity(g){
+  const key=inventoryGroupKey(g);
+  return (S.itemMeta&&S.itemMeta[key]&&S.itemMeta[key].sensitivity)==='non_sensitive'?'非敏感货':'敏感货';
+}
+async function setItemSensitivity(keyEncoded){
+  const key=decodeURIComponent(keyEncoded);
+  S.itemMeta=S.itemMeta||{};
+  const cur=(S.itemMeta[key]||{}).sensitivity==='non_sensitive'?'non_sensitive':'sensitive';
+  S.itemMeta[key]={...(S.itemMeta[key]||{}),sensitivity:cur==='non_sensitive'?'sensitive':'non_sensitive'};
+  await saveState();refresh();navigate('inventory');
+}
+function sensitivityBadge(g){
+  return itemSensitivity(g)==='非敏感货'?'<span class="badge green">非敏感货</span>':'<span class="badge amber">敏感货</span>';
+}
 function renderInventory(){
-  const q=document.getElementById('invSearch').value.toLowerCase(), st=document.getElementById('invStatus').value;
-  let rows=inventoryGroups().filter(g=>!q || g.itemName.toLowerCase().includes(q)||g.sources.some(p=>(p.orderNo||'').toLowerCase().includes(q)));
+  const q=document.getElementById('invSearch').value.toLowerCase(),st=document.getElementById('invStatus').value,sf=document.getElementById('invSensitivity')?.value||'all';
+  let rows=inventoryGroups().filter(g=>!q||g.itemName.toLowerCase().includes(q)||g.sources.some(p=>(p.orderNo||'').toLowerCase().includes(q)));
   rows=rows.filter(g=>st==='all'||(st==='pending'&&g.remaining>0&&g.allocated===0)||(st==='partial'&&g.remaining>0&&g.allocated>0)||(st==='allocated'&&g.remaining===0));
+  rows=rows.filter(g=>sf==='all'||(sf==='non_sensitive'&&itemSensitivity(g)==='非敏感货')||(sf==='sensitive'&&itemSensitivity(g)==='敏感货'));
   document.getElementById('inventoryBody').innerHTML=rows.length?rows.map(g=>`<tr>
     <td><input class="inv-check" type="checkbox" value="${encodeURIComponent(inventoryGroupKey(g))}" onchange="updateInventorySelection()"></td>
-    <td><b>${esc(g.itemName)}</b></td><td>${esc(g.unit||'')}</td><td>${qtyText(g.rawQty,g.unit)}</td>
-    <td>${qtyText(g.allocated,g.unit)}</td><td><b>${qtyText(g.remaining,g.unit)}</b></td><td>${qtyText(g.home,g.unit)}</td><td>${qtyText(g.packedBox,g.unit)}</td>
-    <td>${fmtMoney(g.spend)}</td><td><button class="btn small primary" onclick="openAllocate('${encodeURIComponent(g.itemName)}','${encodeURIComponent(g.unit)}')">分配</button> <button class="btn small" onclick="openInventoryDetail('${encodeURIComponent(g.itemName)}','${encodeURIComponent(g.unit)}')">详情/调整</button></td></tr>`).join(''):`<tr><td colspan="10"><div class="empty">暂无库存记录</div></td></tr>`;
+    <td><b>${esc(g.itemName)}</b></td>
+    <td>${sensitivityBadge(g)} <button class="btn small" onclick="setItemSensitivity('${encodeURIComponent(inventoryGroupKey(g))}')">${itemSensitivity(g)==='非敏感货'?'标为敏感':'标为非敏感'}</button></td>
+    <td>${esc(g.unit||'')}</td><td>${qtyText(g.rawQty,g.unit)}</td><td>${qtyText(g.allocated,g.unit)}</td><td><b>${qtyText(g.remaining,g.unit)}</b></td><td>${qtyText(g.home,g.unit)}</td><td>${qtyText(g.packedBox,g.unit)}</td><td>${fmtMoney(g.spend)}</td>
+    <td><button class="btn small primary" onclick="openAllocate('${encodeURIComponent(g.itemName)}','${encodeURIComponent(g.unit)}')">分配</button> <button class="btn small" onclick="openInventoryDetail('${encodeURIComponent(g.itemName)}','${encodeURIComponent(g.unit)}')">详情/调整</button></td></tr>`).join(''):`<tr><td colspan="11"><div class="empty">暂无库存记录</div></td></tr>`;
   updateInventorySelection();
 }
 function updateInventorySelection(){
@@ -721,6 +738,7 @@ function allocationPackedWeight(a){
 function estimatedBoxGoodsWeight(b){
   return sum(boxLines(b),allocationPlannedWeight);
 }
+function estimatedBoxTotalWeight(b){return estimatedBoxGoodsWeight(b)+(Number(b.tareWeightKg)||0)}
 function actualPlannedBoxGoodsWeight(b){
   return sum(boxLines(b),allocationPackedWeight);
 }
@@ -730,7 +748,7 @@ function plannedBoxGoodsWeight(b){return estimatedBoxGoodsWeight(b)}
 function renderBoxes(){
   const q=document.getElementById('boxSearch').value.toLowerCase(),st=document.getElementById('boxStatus').value;
   const rows=S.boxes.filter(b=>(st==='all'||b.status===st)&&(!q||[b.code,b.seaNo,b.domesticTrackingNo,b.internationalTrackingNo].join(' ').toLowerCase().includes(q))).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
-  document.getElementById('boxesBody').innerHTML=rows.length?rows.map(b=>`<tr><td><b>${esc(b.code)}</b></td><td>${statusBadge(b.status)}</td><td>${boxLines(b).length}</td><td>${fmtNum(plannedBoxGoodsWeight(b))} kg</td><td>${fmtNum(b.tareWeightKg)} kg</td><td>${b.actualTotalWeightKg?fmtNum(b.actualTotalWeightKg)+' kg':'—'}</td><td>${esc(b.seaNo||'—')}</td><td>${esc(b.eta||'—')}</td><td><button class="btn small primary" onclick="openBox('${b.id}')">打开</button></td></tr>`).join(''):`<tr><td colspan="9"><div class="empty">暂无海运箱</div></td></tr>`;
+  document.getElementById('boxesBody').innerHTML=rows.length?rows.map(b=>`<tr><td><b>${esc(b.code)}</b></td><td>${statusBadge(b.status)}</td><td>${boxLines(b).length}</td><td>${fmtNum(plannedBoxGoodsWeight(b))} kg</td><td>${fmtNum(b.tareWeightKg)} kg</td><td><b>${fmtNum(estimatedBoxTotalWeight(b))} kg</b></td><td>${b.actualTotalWeightKg?fmtNum(b.actualTotalWeightKg)+' kg':'—'}</td><td>${esc(b.seaNo||'—')}</td><td>${esc(b.eta||'—')}</td><td><button class="btn small primary" onclick="openBox('${b.id}')">打开</button></td></tr>`).join(''):`<tr><td colspan="10"><div class="empty">暂无海运箱</div></td></tr>`;
 }
 function openBox(bid){const b=S.boxes.find(x=>x.id===bid);if(!b)return;
   const lines=boxLines(b);
@@ -738,7 +756,7 @@ function openBox(bid){const b=S.boxes.find(x=>x.id===bid);if(!b)return;
     b.status==='装箱中'?`<button class="btn primary" onclick="savePacking('${b.id}')">保存装箱</button><button class="btn success" onclick="sealBox('${b.id}')">核查并封箱</button>`:
     `<button class="btn" onclick="openLogistics('${b.id}')">编辑物流</button><button class="btn" onclick="printBox('${b.id}')">打印装箱单</button><button class="btn danger" onclick="reopenBox('${b.id}')">重新开箱</button>`;
   openModal(`<div class="modal-head"><div><h3>${esc(b.code)} ${statusBadge(b.status)}</h3><div class="muted">创建于 ${fmtDate(b.createdAt)} ${b.seaNo?'· 海运号 '+esc(b.seaNo):''}</div></div><button class="btn icon" onclick="closeModal()">×</button></div>
-  <div class="detail-grid"><div class="detail"><label>计划商品预计总重量</label><strong>${fmtNum(estimatedBoxGoodsWeight(b))} kg</strong></div><div class="detail"><label>箱体重量</label><strong>${fmtNum(b.tareWeightKg)} kg</strong></div><div class="detail"><label>实际整箱重量</label>${b.status==='装箱中'?`<input id="boxActualWeight" type="number" min="0" step="0.01" value="${b.actualTotalWeightKg||''}" style="width:150px;border:1px solid var(--line);border-radius:8px;padding:7px"><div class="muted" style="margin-top:4px">整箱称重后填写</div>`:`<strong>${b.actualTotalWeightKg?fmtNum(b.actualTotalWeightKg)+' kg':'—'}</strong>`}</div><div class="detail"><label>预计到货</label><strong>${esc(b.eta||'—')}</strong></div></div>
+  <div class="detail-grid"><div class="detail"><label>计划商品预计总重量</label><strong>${fmtNum(estimatedBoxGoodsWeight(b))} kg</strong></div><div class="detail"><label>箱体重量</label><strong>${fmtNum(b.tareWeightKg)} kg</strong></div><div class="detail"><label>预计整箱总重</label><strong>${fmtNum(estimatedBoxTotalWeight(b))} kg</strong><div class="muted">商品预计重量 + 箱体重量</div></div><div class="detail"><label>实际整箱重量</label>${b.status==='装箱中'?`<input id="boxActualWeight" type="number" min="0" step="0.01" value="${b.actualTotalWeightKg||''}" style="width:150px;border:1px solid var(--line);border-radius:8px;padding:7px"><div class="muted" style="margin-top:4px">整箱称重后填写</div>`:`<strong>${b.actualTotalWeightKg?fmtNum(b.actualTotalWeightKg)+' kg':'—'}</strong>`}</div><div class="detail"><label>预计到货</label><strong>${esc(b.eta||'—')}</strong></div></div>
   <h4 style="margin-top:16px">装箱清单</h4>
   <div class="table-wrap"><table><thead><tr><th>物品</th><th>计划数量</th><th>预计商品重量</th><th>实际装入</th><th>差异</th><th>操作</th></tr></thead><tbody>${lines.length?lines.map(a=>{const diff=a.packedQty===null||a.packedQty===undefined||a.packedQty===''?'':(Number(a.packedQty)-Number(a.plannedQty));const actual=b.status==='装箱中'?`<input id="pack_${a.id}" type="number" min="0" max="${a.plannedQty}" step="any" value="${a.packedQty??''}" style="width:110px;border:1px solid var(--line);border-radius:8px;padding:7px"> ${esc(a.qtyUnit||'')}`:(a.packedQty!=null?qtyText(a.packedQty,a.qtyUnit):'—');const ew=allocationPlannedWeight(a);return `<tr><td><b>${esc(a.itemName)}</b></td><td>${qtyText(a.plannedQty,a.qtyUnit)}</td><td>${fmtNum(ew)} kg</td><td>${actual}</td><td>${diff!==''?fmtNum(diff)+' '+(a.qtyUnit||''): '—'}</td><td><button class="btn small" onclick="openMoveAllocation('${a.id}')">移动</button></td></tr>`}).join(''):'<tr><td colspan="6"><div class="empty">暂无分配到此箱的商品</div></td></tr>'}</tbody></table></div>
   <div class="notice" style="margin-top:12px">预计商品重量按库存来源的“总重量 ÷ 总数量”估算，再乘以本箱计划数量。实际海运重量仍以整箱称重为准；不要求逐项填写商品实际重量。</div>
@@ -979,7 +997,7 @@ async function importMobileResults(file){if(!file)return;try{const obj=JSON.pars
 function exportInspectionResults(){const pack={type:'shipping-mobile-results',version:1,createdAt:now(),inspections:S.inspections};download(`查验结果_${stamp()}.json`,JSON.stringify(pack),'application/json')}
 function exportPurchasesCSV(){const head=['序号','物品名字','数量','重量kg','商品名称','订单号','价格RMB','单价RMB','录入日期'];const body=S.purchases.filter(p=>!p.deleted).map(p=>[p.seq,p.itemName,qtyText(p.qtyValue,p.qtyUnit),p.weightKg,p.productName,p.orderNo,p.priceRmb,p.unitPrice,p.enteredAt?.slice(0,10)]);download('采购记录.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
 function exportInventoryCSV(){const head=['物品','单位','原始数量','已分配','待处理','家里','海运已装','采购金额'];const body=inventoryGroups().map(g=>[g.itemName,g.unit,g.rawQty,g.allocated,g.remaining,g.home,g.packedBox,g.spend]);download('库存.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
-function exportBoxesCSV(){const head=['箱号','状态','预计商品重量kg','箱体重量kg','实际整箱重量kg','海运号','国内物流','国内单号','国际物流','国际单号','预计到货','实际到货'];const body=S.boxes.map(b=>[b.code,b.status,plannedBoxGoodsWeight(b),b.tareWeightKg,b.actualTotalWeightKg,b.seaNo,b.domesticCarrier,b.domesticTrackingNo,b.internationalCarrier,b.internationalTrackingNo,b.eta,b.arrivedDate]);download('海运箱.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
+function exportBoxesCSV(){const head=['箱号','状态','预计商品重量kg','箱体重量kg','预计整箱总重kg','实际整箱重量kg','海运号','国内物流','国内单号','国际物流','国际单号','预计到货','实际到货'];const body=S.boxes.map(b=>[b.code,b.status,plannedBoxGoodsWeight(b),b.tareWeightKg,estimatedBoxTotalWeight(b),b.actualTotalWeightKg,b.seaNo,b.domesticCarrier,b.domesticTrackingNo,b.internationalCarrier,b.internationalTrackingNo,b.eta,b.arrivedDate]);download('海运箱.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
 function exportInspectionsCSV(){const head=['箱号','查验状态','商品','应有数量','实际数量','差异','备注'];const body=[];S.inspections.forEach(i=>{const b=S.boxes.find(b=>b.id===i.boxId);i.items.forEach(x=>body.push([b?.code,i.status,x.itemName,x.expectedQty,x.actualQty,x.actualQty==null?'':x.actualQty-x.expectedQty,i.note||'']))});download('到货查验.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
 function doGlobalSearch(q){q=q.trim().toLowerCase();if(!q)return;const p=S.purchases.filter(x=>[x.itemName,x.productName,x.orderNo].join(' ').toLowerCase().includes(q)).slice(0,50);const b=S.boxes.filter(x=>[x.code,x.seaNo,x.domesticTrackingNo,x.internationalTrackingNo,x.domesticCarrier,x.internationalCarrier].join(' ').toLowerCase().includes(q));document.getElementById('searchHint').textContent=`搜索：${q}`;document.getElementById('searchResults').innerHTML=`<div class="grid2"><div class="card"><h3>采购记录 (${p.length})</h3>${p.length?`<div class="list">${p.map(x=>`<div class="list-item"><span><b>${esc(x.itemName)}</b><br><span class="muted">${esc(x.orderNo||'无订单号')}</span></span><b>${fmtMoney(x.priceRmb)}</b></div>`).join('')}</div>`:'<div class="empty">无</div>'}</div><div class="card"><h3>海运箱 (${b.length})</h3>${b.length?`<div class="list">${b.map(x=>`<div class="list-item"><span><b>${esc(x.code)}</b><br>${statusBadge(x.status)}</span><span>${esc(x.seaNo||'—')}</span></div>`).join('')}</div>`:'<div class="empty">无</div>'}</div></div>`;navigate('search')}
 function openModal(html){document.getElementById('modal').innerHTML=html;document.getElementById('modalBack').classList.add('open')}
@@ -989,5 +1007,6 @@ init();
 window.navigate=navigate;window.openEditPurchase=openEditPurchase;window.saveEditPurchase=saveEditPurchase;window.saveMoveAllocation=saveMoveAllocation;window.saveBatchMove=saveBatchMove;
 window.exportFullBackup=exportFullBackup;window.exportMobilePackage=exportMobilePackage;window.exportInspectionResults=exportInspectionResults;window.exportPurchasesCSV=exportPurchasesCSV;window.exportInventoryCSV=exportInventoryCSV;window.exportBoxesCSV=exportBoxesCSV;window.exportInspectionsCSV=exportInspectionsCSV;
 </script>
+<script>window.setItemSensitivity=setItemSensitivity;window.estimatedBoxTotalWeight=estimatedBoxTotalWeight;</script>
 </body>
 </html>
