@@ -192,13 +192,13 @@ td.wrap{white-space:normal;min-width:240px}
         <div class="page-head"><div><h2>海运箱</h2><div class="muted">每个箱子独立管理；海运号只是物流字段</div></div><div class="actions"><button class="btn primary" onclick="openNewBox()">＋ 新建海运箱</button></div></div>
         <div class="card">
           <div class="toolbar"><input id="boxSearch" placeholder="搜索箱号 / 海运号 / 物流单号"><select id="boxStatus"><option value="all">全部状态</option><option>待装箱</option><option>装箱中</option><option>已封箱</option><option>国内运输</option><option>国际运输</option><option>已到货</option><option>查验完成</option></select></div>
-          <div class="table-wrap"><table><thead><tr><th>箱号</th><th>状态</th><th>商品行</th><th>预计商品重</th><th>箱体重</th><th>预计整箱总重</th><th>实际整箱重</th><th>海运号</th><th>收货人</th><th>预计到货</th><th>运输时长</th><th>操作</th></tr></thead><tbody id="boxesBody"></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>箱号</th><th>状态</th><th>商品行</th><th>预计商品重</th><th>箱体重</th><th>预计整箱总重</th><th>实际整箱重</th><th>海运号</th><th>收货人</th><th>物流状态</th><th>预计到货</th><th>运输时长</th><th>操作</th></tr></thead><tbody id="boxesBody"></tbody></table></div>
         </div>
       </section>
 
       <section class="page" id="page-logistics">
         <div class="page-head"><div><h2>物流追踪</h2><div class="muted">支持按箱号、国内单号、国际单号、海运号搜索</div></div></div>
-        <div class="cards" style="margin-bottom:16px"><div class="card kpi"><div class="label">已完成运输</div><div class="value" id="logDurationCount">0</div><div class="sub">有寄出和实际到货日期</div></div><div class="card kpi"><div class="label">平均运输时长</div><div class="value" id="logDurationAvg">—</div><div class="sub">寄出 → 实际收到</div></div><div class="card kpi"><div class="label">中位运输时长</div><div class="value" id="logDurationMedian">—</div><div class="sub">寄出 → 实际收到</div></div><div class="card kpi"><div class="label">最长 / 最短</div><div class="value" id="logDurationRange">—</div><div class="sub">已完成运输记录</div></div></div><div class="card"><div class="toolbar"><input id="logSearch" placeholder="搜索物流信息 / 收货人"></div><div class="table-wrap"><table><thead><tr><th>箱号</th><th>状态</th><th>收货人</th><th>国内物流</th><th>国内单号</th><th>国际物流</th><th>国际单号</th><th>海运号</th><th>寄出日期</th><th>实际到货</th><th>运输时长</th><th>操作</th></tr></thead><tbody id="logBody"></tbody></table></div></div>
+        <div class="cards" style="margin-bottom:16px"><div class="card kpi"><div class="label">物流异常</div><div class="value" id="logIssueCount">0</div><div class="sub">异常 / 丢失 / 没收</div></div><div class="card kpi"><div class="label">箱子丢失</div><div class="value" id="logLostCount">0</div><div class="sub">标记为丢失</div></div><div class="card kpi"><div class="label">箱子没收</div><div class="value" id="logSeizedCount">0</div><div class="sub">标记为没收</div></div><div class="card kpi"><div class="label">已完成运输</div><div class="value" id="logDurationCount">0</div><div class="sub">有寄出和实际到货日期</div></div><div class="card kpi"><div class="label">平均运输时长</div><div class="value" id="logDurationAvg">—</div><div class="sub">寄出 → 实际收到</div></div><div class="card kpi"><div class="label">中位运输时长</div><div class="value" id="logDurationMedian">—</div><div class="sub">寄出 → 实际收到</div></div><div class="card kpi"><div class="label">最长 / 最短</div><div class="value" id="logDurationRange">—</div><div class="sub">已完成运输记录</div></div></div><div class="card"><div class="toolbar"><input id="logSearch" placeholder="搜索物流信息 / 收货人"></div><div class="table-wrap"><table><thead><tr><th>箱号</th><th>状态</th><th>收货人</th><th>国内物流</th><th>国内单号</th><th>国际物流</th><th>国际单号</th><th>海运号</th><th>寄出日期</th><th>实际到货</th><th>运输时长</th><th>操作</th></tr></thead><tbody id="logBody"></tbody></table></div></div>
       </section>
 
       <section class="page" id="page-inspection">
@@ -337,7 +337,7 @@ async function init(){
     window.__storageFallback=true;
   }
   S.itemMeta=S.itemMeta||{};
-  for(const b of S.boxes||[]){if(b.recipient==null)b.recipient='';if(b.dispatchDate==null)b.dispatchDate='';if(b.arrivedDate==null)b.arrivedDate='';}
+  for(const b of S.boxes||[]){if(b.recipient==null)b.recipient='';if(b.dispatchDate==null)b.dispatchDate='';if(b.arrivedDate==null)b.arrivedDate='';if(b.logisticsIssueStatus==null)b.logisticsIssueStatus='normal';if(b.logisticsIssueNote==null)b.logisticsIssueNote='';if(b.logisticsIssueNote==null)b.logisticsIssueNote='';}
   for(const a of S.allocations||[]){
     if(a.purchaseId)continue;
     const matches=(S.purchases||[]).filter(p=>!p.deleted&&p.itemName===a.itemName&&p.qtyUnit===(a.qtyUnit||''));
@@ -778,7 +778,7 @@ function openNewBox(){
 }
 async function saveNewBox(){
   const code=document.getElementById('nbCode').value.trim();if(!code)return alert('请输入箱号');if(S.boxes.some(b=>b.code===code))return alert('箱号已存在');
-  const b={id:id('box'),code,status:'待装箱',tareWeightKg:num(document.getElementById('nbTare').value)||0,type:document.getElementById('nbType').value.trim(),recipient:document.getElementById('nbRecipient').value.trim(),note:document.getElementById('nbNote').value,actualTotalWeightKg:0,domesticCarrier:'',domesticTrackingNo:'',dispatchDate:'',internationalCarrier:'',internationalTrackingNo:'',internationalFreightRmb:0,domesticFreightRmb:0,seaNo:'',eta:'',arrivedDate:'',createdAt:now(),sealedAt:null};
+  const b={id:id('box'),code,status:'待装箱',tareWeightKg:num(document.getElementById('nbTare').value)||0,type:document.getElementById('nbType').value.trim(),recipient:document.getElementById('nbRecipient').value.trim(),logisticsIssueStatus:'normal',logisticsIssueNote:'',note:document.getElementById('nbNote').value,actualTotalWeightKg:0,domesticCarrier:'',domesticTrackingNo:'',dispatchDate:'',internationalCarrier:'',internationalTrackingNo:'',internationalFreightRmb:0,domesticFreightRmb:0,seaNo:'',eta:'',arrivedDate:'',createdAt:now(),sealedAt:null};
   S.boxes.push(b);S.logs.push({id:id('log'),time:now(),type:'box',text:`新建 ${code}`});await saveState();closeModal();refresh();openBox(b.id)
 }
 
@@ -863,7 +863,7 @@ function plannedBoxGoodsWeight(b){return estimatedBoxGoodsWeight(b)}
 function renderBoxes(){
   const q=document.getElementById('boxSearch').value.toLowerCase(),st=document.getElementById('boxStatus').value;
   const rows=S.boxes.filter(b=>(st==='all'||b.status===st)&&(!q||[b.code,b.seaNo,b.domesticTrackingNo,b.internationalTrackingNo].join(' ').toLowerCase().includes(q))).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
-  document.getElementById('boxesBody').innerHTML=rows.length?rows.map(b=>`<tr><td><b>${esc(b.code)}</b></td><td>${statusBadge(b.status)}</td><td>${boxLines(b).length}</td><td>${fmtNum(plannedBoxGoodsWeight(b))} kg</td><td>${fmtNum(b.tareWeightKg)} kg</td><td><b>${fmtNum(estimatedBoxTotalWeight(b))} kg</b></td><td>${b.actualTotalWeightKg?fmtNum(b.actualTotalWeightKg)+' kg':'—'}</td><td>${esc(b.seaNo||'—')}</td><td>${esc(b.recipient||'—')}</td><td>${esc(b.eta||'—')}</td><td>${transportDurationText(b)}</td><td><button class="btn small primary" onclick="openBox('${b.id}')">打开</button></td></tr>`).join(''):`<tr><td colspan="14"><div class="empty">暂无海运箱</div></td></tr>`;
+  document.getElementById('boxesBody').innerHTML=rows.length?rows.map(b=>`<tr><td><b>${esc(b.code)}</b></td><td>${statusBadge(b.status)}</td><td>${boxLines(b).length}</td><td>${fmtNum(plannedBoxGoodsWeight(b))} kg</td><td>${fmtNum(b.tareWeightKg)} kg</td><td><b>${fmtNum(estimatedBoxTotalWeight(b))} kg</b></td><td>${b.actualTotalWeightKg?fmtNum(b.actualTotalWeightKg)+' kg':'—'}</td><td>${esc(b.seaNo||'—')}</td><td>${esc(b.recipient||'—')}</td><td>${logisticsIssueBadge(b)}</td><td>${esc(b.eta||'—')}</td><td>${transportDurationText(b)}</td><td><button class="btn small primary" onclick="openBox('${b.id}')">打开</button></td></tr>`).join(''):`<tr><td colspan="14"><div class="empty">暂无海运箱</div></td></tr>`;
 }
 function openBox(bid){const b=S.boxes.find(x=>x.id===bid);if(!b)return;
   const lines=boxLines(b);
@@ -910,6 +910,8 @@ async function sealBox(bid){
   await saveState();closeModal();refresh();openBox(bid);
 }
 async function reopenBox(bid){const b=S.boxes.find(x=>x.id===bid);if(!confirm('重新开箱后可以修改装箱数量；是否继续？'))return;b.status='装箱中';await saveState();closeModal();openBox(bid)}
+function logisticsIssueLabel(b){const s=b.logisticsIssueStatus||'normal';return s==='issue'?'物流异常':s==='lost'?'箱子丢失':s==='seized'?'箱子没收':'正常';}
+function logisticsIssueBadge(b){const s=b.logisticsIssueStatus||'normal';const cls=s==='normal'?'badge ok':s==='issue'?'badge warn':'badge danger';return `<span class="${cls}">${logisticsIssueLabel(b)}</span>`;}
 function transportDurationDays(b){
   if(!b.dispatchDate||!b.arrivedDate)return null;
   const d1=new Date(b.dispatchDate+'T00:00:00'),d2=new Date(b.arrivedDate+'T00:00:00');
@@ -923,16 +925,69 @@ function logisticsDurationStats(boxes){
   const s=[...vals].sort((a,b)=>a-b),mid=Math.floor(s.length/2);
   return {count:vals.length,avg:vals.reduce((a,b)=>a+b,0)/vals.length,min:s[0],max:s[s.length-1],median:s.length%2?s[mid]:(s[mid-1]+s[mid])/2};
 }
-function openLogistics(bid){const b=S.boxes.find(x=>x.id===bid);openModal(`<div class="modal-head"><div><h3>${esc(b.code)} · 物流信息</h3></div><button class="btn icon" onclick="closeModal()">×</button></div>
-<div class="form-grid"><div class="field"><label>收货人</label><input id="lgRecipient" value="${esc(b.recipient||'')}"></div><div class="field"><label>国内物流公司</label><input id="lgDC" value="${esc(b.domesticCarrier||'')}"></div><div class="field"><label>国内物流单号</label><input id="lgDN" value="${esc(b.domesticTrackingNo||'')}"></div><div class="field"><label>国内段运费 RMB</label><input id="lgDF" type="number" min="0" step="0.01" value="${Number(b.domesticFreightRmb)||0}"></div><div class="field"><label>寄出日期</label><input id="lgDD" type="date" value="${esc(b.dispatchDate||'')}"></div><div class="field"><label>国际物流公司</label><input id="lgIC" value="${esc(b.internationalCarrier||'')}"></div><div class="field"><label>国际物流单号</label><input id="lgIN" value="${esc(b.internationalTrackingNo||'')}"></div><div class="field"><label>国际段运费 RMB</label><input id="lgIF" type="number" min="0" step="0.01" value="${Number(b.internationalFreightRmb)||0}"></div><div class="field"><label>海运号</label><input id="lgSN" value="${esc(b.seaNo||'')}"></div><div class="field"><label>预计到货日期</label><input id="lgETA" type="date" value="${esc(b.eta||'')}"></div><div class="field"><label>实际到货日期</label><input id="lgArr" type="date" value="${esc(b.arrivedDate||'')}"></div></div><div class="modal-foot"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveLogistics('${b.id}')">保存</button></div>`)}
-async function saveLogistics(bid){const b=S.boxes.find(x=>x.id===bid);Object.assign(b,{recipient:document.getElementById('lgRecipient').value.trim(),domesticCarrier:document.getElementById('lgDC').value.trim(),domesticTrackingNo:document.getElementById('lgDN').value.trim(),domesticFreightRmb:Math.max(0,num(document.getElementById('lgDF').value)||0),dispatchDate:document.getElementById('lgDD').value,internationalCarrier:document.getElementById('lgIC').value.trim(),internationalTrackingNo:document.getElementById('lgIN').value.trim(),internationalFreightRmb:Math.max(0,num(document.getElementById('lgIF').value)||0),seaNo:document.getElementById('lgSN').value.trim(),eta:document.getElementById('lgETA').value,arrivedDate:document.getElementById('lgArr').value});
-  if(b.arrivedDate)b.status='已到货'; else if(b.internationalTrackingNo||b.seaNo)b.status='国际运输'; else if(b.domesticTrackingNo)b.status='国内运输';
-  await saveState();closeModal();refresh();navigate('logistics');
+async function saveLogistics(bid){
+  try{
+    const b=S.boxes.find(x=>String(x.id)===String(bid));
+    if(!b){alert('保存失败：找不到该箱子');return;}
+    const val=id=>document.getElementById(id)?.value ?? '';
+    b.recipient=String(val('lgRecipient')).trim();
+    b.logisticsIssueStatus=val('lgIssueStatus')||'normal';
+    b.logisticsIssueNote=String(val('lgIssueNote')).trim();
+    b.domesticCarrier=String(val('lgDomesticCarrier')).trim();
+    b.domesticTrackingNo=String(val('lgDomesticNo')).trim();
+    b.internationalCarrier=String(val('lgInternationalCarrier')).trim();
+    b.internationalTrackingNo=String(val('lgInternationalNo')).trim();
+    b.seaNo=String(val('lgSeaNo')).trim();
+    b.dispatchDate=val('lgDispatchDate');
+    b.eta=val('lgEta');
+    b.arrivedDate=val('lgArrivedDate');
+    b.domesticFreightRmb=Number(val('lgDomesticFreight'))||0;
+    b.internationalFreightRmb=Number(val('lgInternationalFreight'))||0;
+    b.note=String(val('lgNote')).trim();
+    await saveState();
+    closeModal();
+    refresh();
+    if(typeof toast==='function')toast('物流信息已保存');
+  }catch(e){
+    console.error('saveLogistics failed:',e);
+    alert('保存失败：'+(e?.message||e));
+  }
 }
+window.saveLogistics=saveLogistics;
+
+function openLogistics(bid){
+  const b=S.boxes.find(x=>String(x.id)===String(bid));
+  if(!b){alert('找不到该箱子');return;}
+  const status=b.logisticsIssueStatus||'normal';
+  openModal(`<div class="modal-head"><div><h3>${esc(b.code)} · 物流信息</h3></div><button type="button" class="btn icon" onclick="closeModal()">×</button></div>
+<div class="form-grid">
+<div class="field"><label>收货人</label><input id="lgRecipient" value="${esc(b.recipient||'')}"></div>
+<div class="field"><label>物流状态</label><select id="lgIssueStatus"><option value="normal" ${status==='normal'?'selected':''}>正常</option><option value="issue" ${status==='issue'?'selected':''}>⚠️ 物流异常</option><option value="lost" ${status==='lost'?'selected':''}>❌ 箱子丢失</option><option value="seized" ${status==='seized'?'selected':''}>🚫 箱子没收</option></select></div>
+<div class="field full"><label>异常备注</label><textarea id="lgIssueNote" rows="3">${esc(b.logisticsIssueNote||'')}</textarea></div>
+<div class="field"><label>国内物流公司</label><input id="lgDomesticCarrier" value="${esc(b.domesticCarrier||'')}"></div>
+<div class="field"><label>国内物流单号</label><input id="lgDomesticNo" value="${esc(b.domesticTrackingNo||'')}"></div>
+<div class="field"><label>国际物流公司</label><input id="lgInternationalCarrier" value="${esc(b.internationalCarrier||'')}"></div>
+<div class="field"><label>国际物流单号</label><input id="lgInternationalNo" value="${esc(b.internationalTrackingNo||'')}"></div>
+<div class="field"><label>海运号</label><input id="lgSeaNo" value="${esc(b.seaNo||'')}"></div>
+<div class="field"><label>寄出日期</label><input id="lgDispatchDate" type="date" value="${esc(b.dispatchDate||'')}"></div>
+<div class="field"><label>预计到货日期</label><input id="lgEta" type="date" value="${esc(b.eta||'')}"></div>
+<div class="field"><label>实际到货日期</label><input id="lgArrivedDate" type="date" value="${esc(b.arrivedDate||'')}"></div>
+<div class="field"><label>国内运费（元）</label><input id="lgDomesticFreight" type="number" step="0.01" value="${Number(b.domesticFreightRmb||0)}"></div>
+<div class="field"><label>国际运费（元）</label><input id="lgInternationalFreight" type="number" step="0.01" value="${Number(b.internationalFreightRmb||0)}"></div>
+<div class="field full"><label>线路备注</label><textarea id="lgNote" rows="2">${esc(b.note||'')}</textarea></div>
+</div>
+<div class="modal-actions" style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">
+<button type="button" class="btn" onclick="closeModal()">取消</button>
+<button type="button" class="btn primary" id="saveLogisticsBtn">💾 保存物流信息</button>
+</div>`);
+  const btn=document.getElementById('saveLogisticsBtn');
+  if(btn)btn.addEventListener('click',()=>saveLogistics(bid));
+}
+
 function renderLogistics(){
   const q=document.getElementById('logSearch').value.toLowerCase();
-  const rows=S.boxes.filter(b=>!q||[b.code,b.seaNo,b.domesticTrackingNo,b.internationalTrackingNo,b.domesticCarrier,b.internationalCarrier,b.recipient].join(' ').toLowerCase().includes(q));
-  const stats=logisticsDurationStats(rows);
+  const rows=S.boxes.filter(b=>!q||[b.code,b.seaNo,b.domesticTrackingNo,b.internationalTrackingNo,b.domesticCarrier,b.internationalCarrier,b.recipient,b.logisticsIssueNote,b.logisticsIssueStatus].join(' ').toLowerCase().includes(q));
+  const stats=logisticsDurationStats(rows);const issueCount=rows.filter(b=>(b.logisticsIssueStatus||'normal')!=='normal').length;const lostCount=rows.filter(b=>b.logisticsIssueStatus==='lost').length;const seizedCount=rows.filter(b=>b.logisticsIssueStatus==='seized').length;document.getElementById('logIssueCount').textContent=issueCount;document.getElementById('logLostCount').textContent=lostCount;document.getElementById('logSeizedCount').textContent=seizedCount;
   document.getElementById('logDurationCount').textContent=String(stats.count);
   document.getElementById('logDurationAvg').textContent=stats.avg==null?'—':`${fmtNum(stats.avg)} 天`;
   document.getElementById('logDurationMedian').textContent=stats.median==null?'—':`${fmtNum(stats.median)} 天`;
@@ -1192,7 +1247,6 @@ window.navigate=navigate;window.openEditPurchase=openEditPurchase;window.saveEdi
 window.exportFullBackup=exportFullBackup;window.exportMobilePackage=exportMobilePackage;window.exportInspectionResults=exportInspectionResults;window.exportPurchasesCSV=exportPurchasesCSV;window.exportInventoryCSV=exportInventoryCSV;window.exportBoxesCSV=exportBoxesCSV;window.exportInspectionsCSV=exportInspectionsCSV;
 </script>
 <script>window.setItemSensitivity=setItemSensitivity;window.estimatedBoxTotalWeight=estimatedBoxTotalWeight;</script>
-<script>window.deleteInventoryItem=deleteInventoryItem;window.setItemSensitivity=setItemSensitivity;window.estimatedBoxTotalWeight=estimatedBoxTotalWeight;</script>
 <script>window.deleteInventoryItem=deleteInventoryItem;</script>
 </body>
 </html>
