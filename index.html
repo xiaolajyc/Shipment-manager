@@ -89,8 +89,6 @@ td.wrap{white-space:normal;min-width:240px}
   table{min-width:680px}
 }
 @media(max-width:500px){.cards{grid-template-columns:1fr 1fr}.kpi .value{font-size:23px}.modal-back{padding:8px}.modal{padding:13px}.btn{padding:8px 10px}}
-
-@keyframes boxIssuePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.72;transform:scale(1.03)}}
 </style>
 <style>
 .bar-item{flex:0 0 54px!important;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px}
@@ -238,8 +236,8 @@ td.wrap{white-space:normal;min-width:240px}
       <section class="page" id="page-data">
         <div class="page-head"><div><h2>数据管理</h2><div class="muted">所有数据保存在当前浏览器本地 IndexedDB</div></div></div>
         <div class="grid2">
-          <div class="card"><h3>完整备份</h3><p class="muted">适合电脑主端的完整备份与恢复。清除所有数据不可恢复，执行前会要求两次确认。</p><div class="toolbar"><button class="btn primary" id="btnExportFull" onclick="exportFullBackup()">导出完整 JSON</button><button class="btn" id="btnImportFull" onclick="document.getElementById('jsonInput').click()">导入完整 JSON</button><button class="btn danger" id="btnClearAll" onclick="window.clearAllData()" >清除所有数据</button><input id="jsonInput" type="file" accept=".json" class="hidden"></div></div>
-          <div class="card"><h3>手机数据包</h3><p class="muted">电脑 → 手机：导出当前主数据快照。手机端可查看库存、箱子和物流，并完成到货查验；手机完成查验后导出“查验结果包”回电脑。</p><div class="toolbar"><button class="btn primary" id="btnExportMobile" onclick="exportMobilePackage()">导出手机数据包</button><button class="btn" id="btnImportMobile" onclick="document.getElementById('mobileResultInput').click()">导入手机查验结果</button><button class="btn" id="btnExportInspection" onclick="exportInspectionResults()">导出查验结果</button><input id="mobileResultInput" type="file" accept=".json" class="hidden"></div></div>
+          <div class="card"><h3>完整备份</h3><p class="muted">适合电脑主端的完整备份与恢复。清除所有数据不可恢复，执行前会要求两次确认。</p><div class="toolbar"><button class="btn primary" id="btnExportFull" onclick="exportFullBackup()">导出完整 JSON</button><button class="btn" id="btnImportFull" onclick="document.getElementById('jsonInput').click()">导入 JSON（自动识别）</button><button class="btn danger" id="btnClearAll" onclick="window.clearAllData()" >清除所有数据</button><input id="jsonInput" type="file" accept=".json" class="hidden"></div></div>
+          <div class="card"><h3>手机数据包</h3><p class="muted">电脑 → 手机：先在电脑导出手机数据包，再在手机的“导入 JSON（自动识别）”中选择该文件即可。手机完成到货查验后，再导出“查验结果包”回电脑。</p><div class="toolbar"><button class="btn primary" id="btnExportMobile" onclick="exportMobilePackage()">导出手机数据包</button><button class="btn" id="btnImportMobile" onclick="document.getElementById('mobileResultInput').click()">导入手机查验结果</button><button class="btn" id="btnExportInspection" onclick="exportInspectionResults()">导出查验结果</button><input id="mobileResultInput" type="file" accept=".json" class="hidden"></div></div>
         </div>
         <div class="card" style="margin-top:16px"><h3>Excel 导出</h3><div class="toolbar"><button class="btn" id="btnExportPurchases" onclick="exportPurchasesCSV()">采购记录 CSV</button><button class="btn" id="btnExportInventory" onclick="exportInventoryCSV()">库存 CSV</button><button class="btn" id="btnExportBoxes" onclick="exportBoxesCSV()">海运箱 CSV</button><button class="btn" id="btnExportInspections" onclick="exportInspectionsCSV()">查验 CSV</button></div></div>
         <div class="card" style="margin-top:16px"><h3>本地数据概况</h3><div class="detail-grid" id="dataSummary"></div></div>
@@ -355,7 +353,7 @@ function bindEvents(){
   document.getElementById('fileInput').addEventListener('change',e=>handleFile(e.target.files[0]));
   const dz=document.getElementById('dropzone');['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag')}));['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag')}));dz.addEventListener('drop',e=>handleFile(e.dataTransfer.files[0]));
   document.getElementById('ocrInput').addEventListener('change',e=>handleOCR(e.target.files[0]));
-  document.getElementById('jsonInput').addEventListener('change',e=>importFullJSON(e.target.files[0]));
+  document.getElementById('jsonInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importFullJSON(f);e.target.value=''});
   document.getElementById('mobileResultInput').addEventListener('change',e=>importMobileResults(e.target.files[0]));
   ['invSearch','invStatus','invSensitivity','invDrug'].forEach(x=>document.getElementById(x).addEventListener('input',renderInventory));
   ['boxSearch','boxStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderBoxes));
@@ -865,14 +863,14 @@ function plannedBoxGoodsWeight(b){return estimatedBoxGoodsWeight(b)}
 function renderBoxes(){
   const q=document.getElementById('boxSearch').value.toLowerCase(),st=document.getElementById('boxStatus').value;
   const rows=S.boxes.filter(b=>(st==='all'||b.status===st)&&(!q||[b.code,b.seaNo,b.domesticTrackingNo,b.internationalTrackingNo].join(' ').toLowerCase().includes(q))).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
-  document.getElementById('boxesBody').innerHTML=rows.length?rows.map(b=>`<tr><td><b>${esc(b.code)}</b>${boxIssueMark(b)}</td><td>${statusBadge(b.status)}</td><td>${boxLines(b).length}</td><td>${fmtNum(plannedBoxGoodsWeight(b))} kg</td><td>${fmtNum(b.tareWeightKg)} kg</td><td><b>${fmtNum(estimatedBoxTotalWeight(b))} kg</b></td><td>${b.actualTotalWeightKg?fmtNum(b.actualTotalWeightKg)+' kg':'—'}</td><td>${esc(b.seaNo||'—')}</td><td>${esc(b.recipient||'—')}</td><td>${logisticsIssueBadge(b)}</td><td>${esc(b.eta||'—')}</td><td>${transportDurationText(b)}</td><td><button class="btn small primary" onclick="openBox('${b.id}')">打开</button></td></tr>`).join(''):`<tr><td colspan="14"><div class="empty">暂无海运箱</div></td></tr>`;
+  document.getElementById('boxesBody').innerHTML=rows.length?rows.map(b=>`<tr><td><b>${esc(b.code)}</b></td><td>${statusBadge(b.status)}</td><td>${boxLines(b).length}</td><td>${fmtNum(plannedBoxGoodsWeight(b))} kg</td><td>${fmtNum(b.tareWeightKg)} kg</td><td><b>${fmtNum(estimatedBoxTotalWeight(b))} kg</b></td><td>${b.actualTotalWeightKg?fmtNum(b.actualTotalWeightKg)+' kg':'—'}</td><td>${esc(b.seaNo||'—')}</td><td>${esc(b.recipient||'—')}</td><td>${logisticsIssueBadge(b)}</td><td>${esc(b.eta||'—')}</td><td>${transportDurationText(b)}</td><td><button class="btn small primary" onclick="openBox('${b.id}')">打开</button></td></tr>`).join(''):`<tr><td colspan="14"><div class="empty">暂无海运箱</div></td></tr>`;
 }
 function openBox(bid){const b=S.boxes.find(x=>x.id===bid);if(!b)return;
   const lines=boxLines(b);
   const actions=b.status==='待装箱'?`<button class="btn primary" onclick="startPacking('${b.id}')">开始装箱</button>`:
     b.status==='装箱中'?`<button class="btn primary" onclick="savePacking('${b.id}')">保存装箱</button><button class="btn success" onclick="sealBox('${b.id}')">核查并封箱</button>`:
     `<button class="btn" onclick="openLogistics('${b.id}')">编辑物流</button><button class="btn" onclick="printBox('${b.id}')">打印装箱单</button><button class="btn danger" onclick="reopenBox('${b.id}')">重新开箱</button>`;
-  openModal(`<div class="modal-head"><div><h3>${esc(b.code)} ${boxIssueMark(b)} ${statusBadge(b.status)}</h3><div class="muted">创建于 ${fmtDate(b.createdAt)} ${b.seaNo?'· 海运号 '+esc(b.seaNo):''}</div></div><button class="btn icon" onclick="closeModal()">×</button></div>
+  openModal(`<div class="modal-head"><div><h3>${esc(b.code)} ${statusBadge(b.status)}</h3><div class="muted">创建于 ${fmtDate(b.createdAt)} ${b.seaNo?'· 海运号 '+esc(b.seaNo):''}</div></div><button class="btn icon" onclick="closeModal()">×</button></div>
   <div class="detail-grid"><div class="detail"><label>收货人</label><strong>${esc(b.recipient||"—")}</strong></div><div class="detail"><label>寄出 → 收到</label><strong>${transportDurationText(b)}</strong><div class="muted">${esc(b.dispatchDate||"—")} → ${esc(b.arrivedDate||"—")}</div></div><div class="detail"><label>计划商品预计总重量</label><strong>${fmtNum(estimatedBoxGoodsWeight(b))} kg</strong></div><div class="detail"><label>箱体重量</label><strong>${fmtNum(b.tareWeightKg)} kg</strong></div><div class="detail"><label>预计整箱总重</label><strong>${fmtNum(estimatedBoxTotalWeight(b))} kg</strong><div class="muted">商品预计重量 + 箱体重量</div></div><div class="detail"><label>实际整箱重量</label>${b.status==='装箱中'?`<input id="boxActualWeight" type="number" min="0" step="0.01" value="${b.actualTotalWeightKg||''}" style="width:150px;border:1px solid var(--line);border-radius:8px;padding:7px"><div class="muted" style="margin-top:4px">整箱称重后填写</div>`:`<strong>${b.actualTotalWeightKg?fmtNum(b.actualTotalWeightKg)+' kg':'—'}</strong>`}</div><div class="detail"><label>预计到货</label><strong>${esc(b.eta||'—')}</strong></div></div>
   <h4 style="margin-top:16px">装箱清单</h4>
   <div class="table-wrap"><table><thead><tr><th>物品</th><th>计划数量</th><th>预计商品重量</th><th>实际装入</th><th>差异</th><th>操作</th></tr></thead><tbody>${lines.length?lines.map(a=>{const diff=a.packedQty===null||a.packedQty===undefined||a.packedQty===''?'':(Number(a.packedQty)-Number(a.plannedQty));const actual=b.status==='装箱中'?`<input id="pack_${a.id}" type="number" min="0" max="${a.plannedQty}" step="any" value="${a.packedQty??''}" style="width:110px;border:1px solid var(--line);border-radius:8px;padding:7px"> ${esc(a.qtyUnit||'')}`:(a.packedQty!=null?qtyText(a.packedQty,a.qtyUnit):'—');const ew=allocationPlannedWeight(a);return `<tr><td><b>${esc(a.itemName)}</b></td><td>${qtyText(a.plannedQty,a.qtyUnit)}</td><td>${fmtNum(ew)} kg</td><td>${actual}</td><td>${diff!==''?fmtNum(diff)+' '+(a.qtyUnit||''): '—'}</td><td><button class="btn small" onclick="openMoveAllocation('${a.id}')">移动</button></td></tr>`}).join(''):'<tr><td colspan="6"><div class="empty">暂无分配到此箱的商品</div></td></tr>'}</tbody></table></div>
@@ -914,7 +912,6 @@ async function sealBox(bid){
 async function reopenBox(bid){const b=S.boxes.find(x=>x.id===bid);if(!confirm('重新开箱后可以修改装箱数量；是否继续？'))return;b.status='装箱中';await saveState();closeModal();openBox(bid)}
 function logisticsIssueLabel(b){const s=b.logisticsIssueStatus||'normal';return s==='issue'?'物流异常':s==='lost'?'箱子丢失':s==='seized'?'箱子没收':'正常';}
 function logisticsIssueBadge(b){const s=b.logisticsIssueStatus||'normal';const cls=s==='normal'?'badge ok':s==='issue'?'badge warn':'badge danger';return `<span class="${cls}">${logisticsIssueLabel(b)}</span>`;}
-function boxIssueMark(b){const s=b.logisticsIssueStatus||'normal';if(s==='normal')return '';const label=logisticsIssueLabel(b);const note=b.logisticsIssueNote?` · ${esc(b.logisticsIssueNote)}`:'';return `<span title="${esc(label+(b.logisticsIssueNote?'：'+b.logisticsIssueNote:''))}" style="display:inline-flex;align-items:center;gap:4px;margin-left:7px;padding:3px 8px;border-radius:999px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;font-size:12px;font-weight:800;vertical-align:middle;animation:boxIssuePulse 1.8s ease-in-out infinite">⚠️ ${esc(label)}</span>`;}
 function transportDurationDays(b){
   if(!b.dispatchDate||!b.arrivedDate)return null;
   const d1=new Date(b.dispatchDate+'T00:00:00'),d2=new Date(b.arrivedDate+'T00:00:00');
@@ -1212,8 +1209,48 @@ window.clearAllData=clearAllData;
 
 function exportFullBackup(){download(`海运管理_${stamp()}.json`,JSON.stringify(S,null,2),'application/json')}
 function stamp(){const d=new Date();return d.toISOString().replace(/[:T]/g,'-').slice(0,16)}
-function exportMobilePackage(){const pack={type:'shipping-mobile-snapshot',version:1,createdAt:now(),sourceUpdatedAt:S.meta.updatedAt,data:{purchases:S.purchases.filter(p=>!p.deleted),allocations:S.allocations,boxes:S.boxes.map(b=>({...b})),inspections:S.inspections}};download(`海运管理_手机数据包_${stamp()}.json`,JSON.stringify(pack),'application/json')}
-async function importFullJSON(file){if(!file)return;try{const obj=JSON.parse(await file.text());if(!obj.purchases||!obj.boxes)throw new Error('JSON结构不是海运管理数据');if(!confirm('导入完整 JSON 会替换当前本地数据。请先确认已有备份。继续？'))return;S=obj;await saveState();refresh();alert('完整数据已恢复');navigate('dashboard')}catch(e){alert('恢复失败：'+e.message)}}
+function exportMobilePackage(){const pack={type:'shipping-mobile-snapshot',version:2,createdAt:now(),sourceUpdatedAt:S.meta.updatedAt,data:{purchases:S.purchases.filter(p=>!p.deleted),allocations:S.allocations,boxes:S.boxes.map(b=>({...b})),inspections:S.inspections,itemMeta:S.itemMeta||{},settings:S.settings||{}}};download(`海运管理_手机数据包_${stamp()}.json`,JSON.stringify(pack),'application/json')}
+async function importFullJSON(file){
+  if(!file)return;
+  try{
+    const text=await file.text();
+    const obj=JSON.parse(text);
+    // 支持电脑“完整 JSON”和“手机数据包”两种格式，避免手机端导入后看起来没有数据。
+    if(obj&&obj.type==='shipping-mobile-snapshot'&&obj.data){
+      if(!confirm(`检测到手机数据包：采购 ${obj.data.purchases?.length||0} 条、库存分配 ${obj.data.allocations?.length||0} 条、海运箱 ${obj.data.boxes?.length||0} 个。\n导入后将替换手机当前本地数据，是否继续？`))return;
+      const base=defaultState();
+      S={...base,...obj.data,meta:{...base.meta,updatedAt:obj.sourceUpdatedAt||obj.createdAt||now()},settings:{...base.settings,...(obj.data.settings||{})},itemMeta:obj.data.itemMeta||{}};
+      S.purchases=Array.isArray(S.purchases)?S.purchases:[];
+      S.allocations=Array.isArray(S.allocations)?S.allocations:[];
+      S.boxes=Array.isArray(S.boxes)?S.boxes:[];
+      S.inspections=Array.isArray(S.inspections)?S.inspections:[];
+      await saveState();
+      refresh();
+      navigate('dashboard');
+      alert(`手机数据包导入成功：${S.purchases.length} 条采购、${S.boxes.length} 个海运箱。`);
+      return;
+    }
+    if(!obj||!Array.isArray(obj.purchases)||!Array.isArray(obj.boxes))throw new Error('JSON结构不是海运管理完整数据，也不是手机数据包');
+    if(!confirm(`检测到完整备份：采购 ${obj.purchases.length} 条、海运箱 ${obj.boxes.length} 个。\n导入后将替换当前本地数据，是否继续？`))return;
+    const base=defaultState();
+    S={...base,...obj,
+      purchases:Array.isArray(obj.purchases)?obj.purchases:[],
+      allocations:Array.isArray(obj.allocations)?obj.allocations:[],
+      boxes:Array.isArray(obj.boxes)?obj.boxes:[],
+      inspections:Array.isArray(obj.inspections)?obj.inspections:[],
+      meds:Array.isArray(obj.meds)?obj.meds:[],
+      logs:Array.isArray(obj.logs)?obj.logs:[],
+      importHistory:Array.isArray(obj.importHistory)?obj.importHistory:[],
+      itemMeta:obj.itemMeta||{},
+      settings:{...base.settings,...(obj.settings||{})},
+      meta:{...base.meta,...(obj.meta||{}),updatedAt:now()}
+    };
+    await saveState();
+    refresh();
+    navigate('dashboard');
+    alert(`完整数据导入成功：${S.purchases.length} 条采购、${S.boxes.length} 个海运箱。`);
+  }catch(e){console.error(e);alert('导入失败：'+(e&&e.message?e.message:e));}
+}
 async function importMobileResults(file){if(!file)return;try{const obj=JSON.parse(await file.text());if(obj.type!=='shipping-mobile-results')throw new Error('不是手机查验结果包');let added=0;for(const x of obj.inspections||[]){const i=S.inspections.findIndex(i=>i.boxId===x.boxId);if(i>=0)S.inspections[i]=x;else{S.inspections.push(x);added++}const b=S.boxes.find(b=>b.id===x.boxId);if(b&&x.status==='已完成')b.status='查验完成'}await saveState();refresh();alert(`已导入 ${obj.inspections?.length||0} 条查验结果`)}catch(e){alert('导入失败：'+e.message)}}
 function exportInspectionResults(){const pack={type:'shipping-mobile-results',version:1,createdAt:now(),inspections:S.inspections};download(`查验结果_${stamp()}.json`,JSON.stringify(pack),'application/json')}
 function exportPurchasesCSV(){const head=['序号','物品名字','数量','重量kg','商品名称','订单号','价格RMB','单价RMB','录入日期'];const body=S.purchases.filter(p=>!p.deleted).map(p=>[p.seq,p.itemName,qtyText(p.qtyValue,p.qtyUnit),p.weightKg,p.productName,p.orderNo,p.priceRmb,p.unitPrice,p.enteredAt?.slice(0,10)]);download('采购记录.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
