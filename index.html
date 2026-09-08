@@ -184,7 +184,7 @@ td.wrap{white-space:normal;min-width:240px}
       <button class="btn primary" onclick="openBatchAllocate()">批量分配</button><button class="btn" onclick="openBatchMove()">批量移动</button>
       <span class="muted" id="invSelectedCount">已选 0 项</span>
     </div>
-          <div class="table-wrap"><table><thead><tr><th><input type="checkbox" id="invSelectAll" onchange="toggleAllInventory(this.checked)"></th><th>物品</th><th>单位</th><th>原始数量</th><th>已分配</th><th>待处理</th><th>留存家里</th><th>海运中</th><th>采购金额</th><th>操作</th></tr></thead><tbody id="inventoryBody"></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th><input type="checkbox" id="invSelectAll" onchange="toggleAllInventory(this.checked)"></th><th>物品</th><th>敏感属性</th><th>原始数量</th><th>原始重量</th><th>已分配</th><th>待分配</th><th>留存家里</th><th>海运中</th><th>采购金额</th><th>操作</th></tr></thead><tbody id="inventoryBody"></tbody></table></div>
         </div>
       </section>
 
@@ -412,23 +412,35 @@ function inventoryGroups(){
   const map=new Map();
   for(const p of active){
     const key=p.itemName+'||'+(p.qtyUnit||'');
-    if(!map.has(key))map.set(key,{itemName:p.itemName,unit:p.qtyUnit||'',sources:[],rawQty:0,weightKg:0,spend:0});
+    if(!map.has(key))map.set(key,{itemName:p.itemName,unit:p.qtyUnit||'',sources:[],rawQty:0,weightKg:0,spend:0,rawWeightKg:0});
     const g=map.get(key);
     p.remainingQty=purchaseRemaining(p);
     g.sources.push(p);
-    g.rawQty+=p.qtyValue||0;
-    g.weightKg+=p.weightKg||0;
-    g.spend+=p.priceRmb||0;
+    g.rawQty+=Number(p.qtyValue)||0;
+    g.rawWeightKg+=Number(p.weightKg)||0;
+    g.weightKg+=Number(p.weightKg)||0;
+    g.spend+=Number(p.priceRmb)||0;
   }
   for(const g of map.values()){
     const key=g.itemName+'||'+(g.unit||'');
     g.allocations=S.allocations.filter(a=>a.itemKey===key);
-    g.home=sum(g.allocations,a=>a.destinationType==='home'?a.plannedQty:0);
-    g.other=sum(g.allocations,a=>a.destinationType==='other'?a.plannedQty:0);
-    g.plannedBox=sum(g.allocations,a=>a.destinationType==='box'?a.plannedQty:0);
-    g.packedBox=sum(g.allocations,a=>a.destinationType==='box'?(a.packedQty||0):0);
+    g.home=sum(g.allocations,a=>a.destinationType==='home'?(Number(a.plannedQty)||0):0);
+    g.other=sum(g.allocations,a=>a.destinationType==='other'?(Number(a.plannedQty)||0):0);
+    g.plannedBox=sum(g.allocations,a=>a.destinationType==='box'?(Number(a.plannedQty)||0):0);
+    g.packedBox=sum(g.allocations,a=>a.destinationType==='box'?(Number(a.packedQty)||0):0);
     g.allocated=g.home+g.other+g.plannedBox;
-    g.remaining=sum(g.sources,p=>purchaseRemaining(p));
+    // 待分配 = 原始采购数量 - 所有已建立去向的分配数量
+    g.remaining=Math.max(0,g.rawQty-g.allocated);
+    // 海运中只统计已经封箱或正在运输的箱子；已到货/查验完成不再算海运中。
+    const transitStatuses=new Set(['已封箱','国内运输','国际运输']);
+    g.inTransit=S.allocations.reduce((total,a)=>{
+      if(a.itemKey!==key||a.destinationType!=='box')return total;
+      const b=S.boxes.find(x=>x.id===a.destinationId);
+      if(!b||!transitStatuses.has(b.status))return total;
+      // 已有实际装入数量时按实际装入；否则按计划数量。
+      const qty=a.packedQty===null||a.packedQty===undefined||a.packedQty==='' ? Number(a.plannedQty)||0 : Math.max(0,Number(a.packedQty)||0);
+      return total+qty;
+    },0);
   }
   return [...map.values()];
 }
@@ -448,17 +460,44 @@ async function setItemSensitivity(keyEncoded){
 function sensitivityBadge(g){
   return itemSensitivity(g)==='非敏感货'?'<span class="badge green">非敏感货</span>':'<span class="badge amber">敏感货</span>';
 }
+async function deleteInventoryItem(keyEncoded){
+  const key=decodeURIComponent(keyEncoded),g=inventoryGroups().find(x=>inventoryGroupKey(x)===key);
+  if(!g)return;
+  const sources=g.sources.filter(p=>!p.deleted),allocs=S.allocations.filter(a=>sources.some(p=>p.id===a.purchaseId));
+  if(allocs.length)return alert('该商品已有分配记录，不能直接删除。\n\n请先把该商品全部从海运箱/家中移动回“待分配”，再删除。');
+  if(!confirm(`确定删除商品“${g.itemName}”的全部采购记录吗？\n\n原始数量：${qtyText(g.rawQty,g.unit)}\n原始重量：${fmtNum(g.rawWeightKg||0)} kg\n\n此操作不可撤销。`))return;
+  sources.forEach(p=>{p.deleted=true;p.deletedAt=now()});
+  if(S.itemMeta)delete S.itemMeta[key];
+  S.logs.push({id:id('log'),time:now(),type:'delete',text:`删除库存商品：${g.itemName}`});
+  await saveState();refresh();navigate('inventory');
+}
 function renderInventory(){
-  const q=document.getElementById('invSearch').value.toLowerCase(),st=document.getElementById('invStatus').value,sf=document.getElementById('invSensitivity')?.value||'all';
-  let rows=inventoryGroups().filter(g=>!q||g.itemName.toLowerCase().includes(q)||g.sources.some(p=>(p.orderNo||'').toLowerCase().includes(q)));
-  rows=rows.filter(g=>st==='all'||(st==='pending'&&g.remaining>0&&g.allocated===0)||(st==='partial'&&g.remaining>0&&g.allocated>0)||(st==='allocated'&&g.remaining===0));
-  rows=rows.filter(g=>sf==='all'||(sf==='non_sensitive'&&itemSensitivity(g)==='非敏感货')||(sf==='sensitive'&&itemSensitivity(g)==='敏感货'));
-  document.getElementById('inventoryBody').innerHTML=rows.length?rows.map(g=>`<tr>
-    <td><input class="inv-check" type="checkbox" value="${encodeURIComponent(inventoryGroupKey(g))}" onchange="updateInventorySelection()"></td>
-    <td><b>${esc(g.itemName)}</b></td>
-    <td>${sensitivityBadge(g)} <button class="btn small" onclick="setItemSensitivity('${encodeURIComponent(inventoryGroupKey(g))}')">${itemSensitivity(g)==='非敏感货'?'标为敏感':'标为非敏感'}</button></td>
-    <td>${esc(g.unit||'')}</td><td>${qtyText(g.rawQty,g.unit)}</td><td>${qtyText(g.allocated,g.unit)}</td><td><b>${qtyText(g.remaining,g.unit)}</b></td><td>${qtyText(g.home,g.unit)}</td><td>${qtyText(g.packedBox,g.unit)}</td><td>${fmtMoney(g.spend)}</td>
-    <td><button class="btn small primary" onclick="openAllocate('${encodeURIComponent(g.itemName)}','${encodeURIComponent(g.unit)}')">分配</button> <button class="btn small" onclick="openInventoryDetail('${encodeURIComponent(g.itemName)}','${encodeURIComponent(g.unit)}')">详情/调整</button></td></tr>`).join(''):`<tr><td colspan="11"><div class="empty">暂无库存记录</div></td></tr>`;
+  const search=(document.getElementById('invSearch')?.value||'').toLowerCase();
+  const status=document.getElementById('invStatus')?.value||'all';
+  const sensitivity=document.getElementById('invSensitivity')?.value||'all';
+  let rows=inventoryGroups().filter(g=>!search||g.itemName.toLowerCase().includes(search)||g.sources.some(p=>(p.orderNo||'').toLowerCase().includes(search)));
+  rows=rows.filter(g=>status==='all'||(status==='pending'&&g.remaining>0&&g.allocated===0)||(status==='partial'&&g.remaining>0&&g.allocated>0)||(status==='allocated'&&g.remaining<=1e-9));
+  rows=rows.filter(g=>sensitivity==='all'||(sensitivity==='non_sensitive'&&itemSensitivity(g)==='非敏感货')||(sensitivity==='sensitive'&&itemSensitivity(g)==='敏感货'));
+  const body=document.getElementById('inventoryBody');
+  if(!body)return;
+  body.innerHTML=rows.length?rows.map(g=>{
+    const key=encodeURIComponent(inventoryGroupKey(g));
+    return `<tr>
+      <td><input class="inv-check" type="checkbox" value="${key}" onchange="updateInventorySelection()"></td>
+      <td><b>${esc(g.itemName)}</b></td>
+      <td>${sensitivityBadge(g)} <button class="btn small" onclick="setItemSensitivity('${key}')">${itemSensitivity(g)==='非敏感货'?'改为敏感':'标为非敏感'}</button></td>
+      <td><b>${qtyText(g.rawQty,g.unit)}</b></td>
+      <td>${fmtNum(g.rawWeightKg)} kg</td>
+      <td>${qtyText(g.allocated,g.unit)}</td>
+      <td><b>${qtyText(g.remaining,g.unit)}</b></td>
+      <td>${qtyText(g.home,g.unit)}</td>
+      <td><b>${qtyText(g.inTransit,g.unit)}</b></td>
+      <td>${fmtMoney(g.spend)}</td>
+      <td><button class="btn small primary" onclick="openAllocate('${encodeURIComponent(g.itemName)}','${encodeURIComponent(g.unit)}')">分配</button>
+      <button class="btn small" onclick="openInventoryDetail('${encodeURIComponent(g.itemName)}','${encodeURIComponent(g.unit)}')">详情/调整</button>
+      <button class="btn small danger" onclick="deleteInventoryItem('${key}')">删除</button></td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="12"><div class="empty">暂无库存记录</div></td></tr>`;
   updateInventorySelection();
 }
 function updateInventorySelection(){
@@ -632,7 +671,8 @@ async function saveBatchMove(){
   const d=document.getElementById('bmDest').value,targetId=d==='box'?document.getElementById('bmBox').value:null,other=d==='other'?document.getElementById('bmOther').value.trim():'';
   if(d==='box'&&!targetId)return alert('请选择目标箱子');if(d==='other'&&!other)return alert('请填写其他去向');
   const jobs=[...document.querySelectorAll('.bm-check:checked')].map(c=>({a:S.allocations.find(x=>x.id===c.value),q:num(document.querySelector(`.bm-qty[data-id="${c.value}"]`)?.value)||0})).filter(x=>x.a);
-  if(!jobs.length)return alert('请至少选择一条记录');for(const j of jobs)if(j.q<=0||j.q>j.a.plannedQty+1e-9)return alert(`${j.a.itemName} 的移动数量无效`);
+  if(!jobs.length)return alert('请至少选择一条记录');
+  for(const j of jobs)if(j.q<=0||j.q>j.a.plannedQty+1e-9)return alert(`${j.a.itemName} 的移动数量无效`);
   const affected=new Set(jobs.flatMap(j=>[j.a.destinationType==='box'?j.a.destinationId:null,d==='box'?targetId:null].filter(Boolean)));
   for(const bid of affected){const b=S.boxes.find(x=>x.id===bid);if(b&&['已到货','查验完成'].includes(b.status))return alert(`箱子 ${b.code} 已到货/完成查验，不能移动`);}
   const reopen=[...affected].map(x=>S.boxes.find(b=>b.id===x)).filter(Boolean).filter(b=>['已封箱','国内运输','国际运输'].includes(b.status));
@@ -644,10 +684,10 @@ async function saveBatchMove(){
       if(q>=old-1e-9)S.allocations=S.allocations.filter(x=>x.id!==a.id);
       else{a.plannedQty=old-q;a.qtyValue=a.plannedQty;if(packed!=null)a.packedQty=Math.max(0,packed-q);}
     }else if(q>=old-1e-9){
-      a.destinationType=d;a.destinationId=targetId;a.destinationLabel=other;a.packedQty=d==='box'?0:q;
+      a.destinationType=d;a.destinationId=targetId;a.destinationLabel=other;a.packedQty=d==='box'?q:(d==='home'?q:null);
     }else{
       a.plannedQty=old-q;a.qtyValue=a.plannedQty;if(packed!=null)a.packedQty=Math.max(0,packed-q);
-      S.allocations.push({...a,id:id('al'),plannedQty:q,qtyValue:q,destinationType:d,destinationId:targetId,destinationLabel:other,createdAt:now(),packedQty:d==='box'?0:q});
+      S.allocations.push({...a,id:id('al'),plannedQty:q,qtyValue:q,destinationType:d,destinationId:targetId,destinationLabel:other,createdAt:now(),packedQty:d==='box'?q:(d==='home'?q:null)});
     }
     S.logs.push({id:id('log'),time:now(),type:'move',text:`批量移动 ${a.itemName} ${qtyText(q,a.qtyUnit)}：${source} → ${d==='pending'?'待分配':d==='box'?boxCode(targetId):d==='home'?'家里':other}`});
   }
@@ -696,25 +736,29 @@ function openMoveAllocation(aid){
 function toggleMoveDest(){const d=document.getElementById('mvDest').value;document.getElementById('mvBoxField').classList.toggle('hidden',d!=='box');document.getElementById('mvOtherField').classList.toggle('hidden',d!=='other')}
 async function saveMoveAllocation(aid){
   const a=S.allocations.find(x=>x.id===aid);if(!a)return;
-  const q=num(document.getElementById('mvQty').value)||0,d=document.getElementById('mvDest').value,targetId=d==='box'?document.getElementById('mvBox').value:null,other=d==='other'?document.getElementById('mvOther').value.trim():'';
-  if(q<=0||q>a.plannedQty+1e-9)return alert('移动数量必须在 0 到当前分配数量之间');
-  if(d==='box'&&!targetId)return alert('请选择目标箱子');if(d==='other'&&!other)return alert('请填写其他去向');
-  const affected=new Set();if(a.destinationType==='box')affected.add(a.destinationId);if(d==='box')affected.add(targetId);
-  for(const bid of affected){const b=S.boxes.find(x=>x.id===bid);if(b&&['已到货','查验完成'].includes(b.status))return alert(`箱子 ${b.code} 已到货/完成查验，不能移动库存`);}
-  const reopen=[...affected].map(x=>S.boxes.find(b=>b.id===x)).filter(Boolean).filter(b=>['已封箱','国内运输','国际运输'].includes(b.status));
-  if(reopen.length&&!confirm(`本次移动涉及 ${reopen.map(b=>b.code).join('、')}，这些箱子会恢复为“装箱中”。继续？`))return;
-  reopen.forEach(b=>{b.status='装箱中';b.sealedAt=null});
+  const q=num(document.getElementById('mvQty')?.value)||0,d=document.getElementById('mvDest')?.value;
+  const targetId=d==='box'?document.getElementById('mvBox')?.value:null,other=d==='other'?(document.getElementById('mvOther')?.value||'').trim():'';
+  if(q<=0||q>a.plannedQty+1e-9)return alert('移动数量无效');
+  if(d==='box'&&!targetId)return alert('请选择目标箱子');
+  if(d==='other'&&!other)return alert('请填写其他去向');
   const source=allocationDisplayDestination(a),old=Number(a.plannedQty)||0,packed=a.packedQty==null?null:Number(a.packedQty);
   if(d==='pending'){
     if(q>=old-1e-9)S.allocations=S.allocations.filter(x=>x.id!==a.id);
     else{a.plannedQty=old-q;a.qtyValue=a.plannedQty;if(packed!=null)a.packedQty=Math.max(0,packed-q);}
-  }else if(q>=old-1e-9){
-    a.destinationType=d;a.destinationId=targetId;a.destinationLabel=other;a.packedQty=d==='box'?0:q;
   }else{
-    a.plannedQty=old-q;a.qtyValue=a.plannedQty;if(packed!=null)a.packedQty=Math.max(0,packed-q);
-    S.allocations.push({...a,id:id('al'),plannedQty:q,qtyValue:q,destinationType:d,destinationId:targetId,destinationLabel:other,createdAt:now(),packedQty:d==='box'?0:q});
+    const affected=new Set();if(a.destinationType==='box')affected.add(a.destinationId);if(d==='box')affected.add(targetId);
+    for(const bid of affected){const b=S.boxes.find(x=>x.id===bid);if(b&&['已到货','查验完成'].includes(b.status))return alert(`箱子 ${b.code} 已到货/完成查验，不能移动`);}
+    const reopen=[...affected].map(x=>S.boxes.find(b=>b.id===x)).filter(Boolean).filter(b=>['已封箱','国内运输','国际运输'].includes(b.status));
+    if(reopen.length&&!confirm(`相关箱子会恢复为“装箱中”：${reopen.map(b=>b.code).join('、')}。继续？`))return;
+    reopen.forEach(b=>{b.status='装箱中';b.sealedAt=null});
+    if(q>=old-1e-9){
+      a.destinationType=d;a.destinationId=targetId;a.destinationLabel=other;a.packedQty=d==='box'?q:(d==='home'?q:null);
+    }else{
+      a.plannedQty=old-q;a.qtyValue=a.plannedQty;if(packed!=null)a.packedQty=Math.max(0,packed-q);
+      S.allocations.push({...a,id:id('al'),plannedQty:q,qtyValue:q,destinationType:d,destinationId:targetId,destinationLabel:other,createdAt:now(),packedQty:d==='box'?q:(d==='home'?q:null)});
+    }
   }
-  S.logs.push({id:id('log'),time:now(),type:'move',text:`${a.itemName} 移动 ${qtyText(q,a.qtyUnit)}：${source} → ${d==='pending'?'待分配':d==='box'?boxCode(targetId):d==='home'?'家里':other}`});
+  S.logs.push({id:id('log'),time:now(),type:'move',text:`${a.itemName} ${qtyText(q,a.qtyUnit)}：${source} → ${d==='pending'?'待分配':d==='box'?boxCode(targetId):d==='home'?'家里':other}`});
   await saveState();closeModal();refresh();navigate('inventory');
 }
 function boxLines(b){return S.allocations.filter(a=>a.destinationType==='box'&&a.destinationId===b.id)}
@@ -996,7 +1040,7 @@ async function importFullJSON(file){if(!file)return;try{const obj=JSON.parse(awa
 async function importMobileResults(file){if(!file)return;try{const obj=JSON.parse(await file.text());if(obj.type!=='shipping-mobile-results')throw new Error('不是手机查验结果包');let added=0;for(const x of obj.inspections||[]){const i=S.inspections.findIndex(i=>i.boxId===x.boxId);if(i>=0)S.inspections[i]=x;else{S.inspections.push(x);added++}const b=S.boxes.find(b=>b.id===x.boxId);if(b&&x.status==='已完成')b.status='查验完成'}await saveState();refresh();alert(`已导入 ${obj.inspections?.length||0} 条查验结果`)}catch(e){alert('导入失败：'+e.message)}}
 function exportInspectionResults(){const pack={type:'shipping-mobile-results',version:1,createdAt:now(),inspections:S.inspections};download(`查验结果_${stamp()}.json`,JSON.stringify(pack),'application/json')}
 function exportPurchasesCSV(){const head=['序号','物品名字','数量','重量kg','商品名称','订单号','价格RMB','单价RMB','录入日期'];const body=S.purchases.filter(p=>!p.deleted).map(p=>[p.seq,p.itemName,qtyText(p.qtyValue,p.qtyUnit),p.weightKg,p.productName,p.orderNo,p.priceRmb,p.unitPrice,p.enteredAt?.slice(0,10)]);download('采购记录.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
-function exportInventoryCSV(){const head=['物品','单位','原始数量','已分配','待处理','家里','海运已装','采购金额'];const body=inventoryGroups().map(g=>[g.itemName,g.unit,g.rawQty,g.allocated,g.remaining,g.home,g.packedBox,g.spend]);download('库存.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
+function exportInventoryCSV(){const head=['物品','原始数量','已分配','待分配','留存家里','海运中','采购金额'];const body=inventoryGroups().map(g=>[g.itemName,g.rawQty,g.allocated,g.remaining,g.home,g.packedBox,g.spend]);download('库存.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
 function exportBoxesCSV(){const head=['箱号','状态','预计商品重量kg','箱体重量kg','预计整箱总重kg','实际整箱重量kg','海运号','国内物流','国内单号','国际物流','国际单号','预计到货','实际到货'];const body=S.boxes.map(b=>[b.code,b.status,plannedBoxGoodsWeight(b),b.tareWeightKg,estimatedBoxTotalWeight(b),b.actualTotalWeightKg,b.seaNo,b.domesticCarrier,b.domesticTrackingNo,b.internationalCarrier,b.internationalTrackingNo,b.eta,b.arrivedDate]);download('海运箱.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
 function exportInspectionsCSV(){const head=['箱号','查验状态','商品','应有数量','实际数量','差异','备注'];const body=[];S.inspections.forEach(i=>{const b=S.boxes.find(b=>b.id===i.boxId);i.items.forEach(x=>body.push([b?.code,i.status,x.itemName,x.expectedQty,x.actualQty,x.actualQty==null?'':x.actualQty-x.expectedQty,i.note||'']))});download('到货查验.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
 function doGlobalSearch(q){q=q.trim().toLowerCase();if(!q)return;const p=S.purchases.filter(x=>[x.itemName,x.productName,x.orderNo].join(' ').toLowerCase().includes(q)).slice(0,50);const b=S.boxes.filter(x=>[x.code,x.seaNo,x.domesticTrackingNo,x.internationalTrackingNo,x.domesticCarrier,x.internationalCarrier].join(' ').toLowerCase().includes(q));document.getElementById('searchHint').textContent=`搜索：${q}`;document.getElementById('searchResults').innerHTML=`<div class="grid2"><div class="card"><h3>采购记录 (${p.length})</h3>${p.length?`<div class="list">${p.map(x=>`<div class="list-item"><span><b>${esc(x.itemName)}</b><br><span class="muted">${esc(x.orderNo||'无订单号')}</span></span><b>${fmtMoney(x.priceRmb)}</b></div>`).join('')}</div>`:'<div class="empty">无</div>'}</div><div class="card"><h3>海运箱 (${b.length})</h3>${b.length?`<div class="list">${b.map(x=>`<div class="list-item"><span><b>${esc(x.code)}</b><br>${statusBadge(x.status)}</span><span>${esc(x.seaNo||'—')}</span></div>`).join('')}</div>`:'<div class="empty">无</div>'}</div></div>`;navigate('search')}
@@ -1008,5 +1052,7 @@ window.navigate=navigate;window.openEditPurchase=openEditPurchase;window.saveEdi
 window.exportFullBackup=exportFullBackup;window.exportMobilePackage=exportMobilePackage;window.exportInspectionResults=exportInspectionResults;window.exportPurchasesCSV=exportPurchasesCSV;window.exportInventoryCSV=exportInventoryCSV;window.exportBoxesCSV=exportBoxesCSV;window.exportInspectionsCSV=exportInspectionsCSV;
 </script>
 <script>window.setItemSensitivity=setItemSensitivity;window.estimatedBoxTotalWeight=estimatedBoxTotalWeight;</script>
+<script>window.deleteInventoryItem=deleteInventoryItem;window.setItemSensitivity=setItemSensitivity;window.estimatedBoxTotalWeight=estimatedBoxTotalWeight;</script>
+<script>window.deleteInventoryItem=deleteInventoryItem;</script>
 </body>
 </html>
