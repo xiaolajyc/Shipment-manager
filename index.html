@@ -180,9 +180,9 @@ td.wrap{white-space:normal;min-width:240px}
         <div class="card">
           <div class="toolbar">
       <input id="invSearch" placeholder="搜索商品名 / 订单号">
-      <select id="invStatus"><option value="all">全部状态</option><option value="pending">待分配</option><option value="partial">部分分配</option><option value="allocated">已全部分配</option></select><select id="invSensitivity"><option value="all">全部货物</option><option value="non_sensitive">非敏感货</option><option value="sensitive">敏感货</option></select>
-      <button class="btn primary" onclick="openBatchAllocate()">批量分配</button><button class="btn" onclick="openBatchMove()">批量移动</button>
-      <span class="muted" id="invSelectedCount">已选 0 项</span>
+      <select id="invStatus"><option value="all">全部状态</option><option value="pending">待分配</option><option value="partial">部分分配</option><option value="allocated">已全部分配</option></select><select id="invSensitivity"><option value="all">全部货物</option><option value="non_sensitive">非敏感货</option><option value="sensitive">敏感货</option></select><select id="invDrug"><option value="all">全部类型</option><option value="drug">💊 全部药品</option><option value="non_drug">非药品</option></select>
+      <button class="btn primary" onclick="openBatchAllocate()">批量分配</button><button class="btn" onclick="openBatchMove()">批量移动</button><button class="btn" onclick="markSelectedAsDrug()">💊 批量标记为药品</button>
+      <span class="muted" id="invSelectedCount">已选 0 项</span><span class="muted" id="invSelectedWeight">所选库存重量 0 kg</span>
     </div>
           <div class="table-wrap"><table><thead><tr><th><input type="checkbox" id="invSelectAll" onchange="toggleAllInventory(this.checked)"></th><th>物品</th><th>敏感属性</th><th>原始数量</th><th>原始重量</th><th>已分配</th><th>待分配</th><th>留存家里</th><th>海运中</th><th>采购金额</th><th>操作</th></tr></thead><tbody id="inventoryBody"></tbody></table></div>
         </div>
@@ -212,7 +212,10 @@ td.wrap{white-space:normal;min-width:240px}
       <section class="page" id="page-finance">
         <div class="page-head"><div><h2>财务统计</h2><div class="muted">采购日期统一使用首次录入日期；币种 RMB</div></div></div>
         <div class="cards">
-          <div class="card kpi"><div class="label">累计采购金额</div><div class="value" id="finTotal">¥0</div><div class="sub">全部采购记录</div></div>
+          <div class="card kpi"><div class="label">累计采购金额</div><div class="value" id="finTotal">¥0</div><div class="sub">采购费，不含运费</div></div>
+          <div class="card kpi"><div class="label">国内段运费</div><div class="value" id="finDomesticFreight">¥0</div><div class="sub">所有海运箱</div></div>
+          <div class="card kpi"><div class="label">国际段运费</div><div class="value" id="finInternationalFreight">¥0</div><div class="sub">所有海运箱</div></div>
+          <div class="card kpi"><div class="label">总花费</div><div class="value" id="finGrandTotal">¥0</div><div class="sub">采购费 + 国内段 + 国际段</div></div>
           <div class="card kpi"><div class="label">本年度采购</div><div class="value" id="finYear">¥0</div><div class="sub" id="finYearLabel">—</div></div>
           <div class="card kpi"><div class="label">本月采购</div><div class="value" id="finMonth">¥0</div><div class="sub" id="finMonthLabel">—</div></div>
           <div class="card kpi"><div class="label">采购记录</div><div class="value" id="finCount">0</div><div class="sub">去重后正式记录</div></div>
@@ -222,6 +225,7 @@ td.wrap{white-space:normal;min-width:240px}
           <div class="card"><h3>月度采购金额（当前年度）</h3><div id="monthChart" class="bar-chart"></div></div>
         </div>
         <div class="card" style="margin-top:16px"><h3>商品采购金额排行</h3><div class="table-wrap"><table><thead><tr><th>商品</th><th>采购记录</th><th>数量</th><th>采购金额</th></tr></thead><tbody id="productSpendBody"></tbody></table></div></div>
+        <div class="card" style="margin-top:16px"><h3>海运箱运费明细</h3><div class="muted" style="margin-bottom:10px">运费与采购费分开记录；每个箱子可分别填写国内段和国际段运费，单位 RMB。</div><div class="table-wrap"><table><thead><tr><th>箱号</th><th>状态</th><th>海运号</th><th>国内段运费</th><th>国际段运费</th><th>箱级合计</th><th>操作</th></tr></thead><tbody id="freightBody"></tbody></table></div></div>
       </section>
 
       <section class="page" id="page-meds">
@@ -350,7 +354,7 @@ function bindEvents(){
   document.getElementById('ocrInput').addEventListener('change',e=>handleOCR(e.target.files[0]));
   document.getElementById('jsonInput').addEventListener('change',e=>importFullJSON(e.target.files[0]));
   document.getElementById('mobileResultInput').addEventListener('change',e=>importMobileResults(e.target.files[0]));
-  ['invSearch','invStatus','invSensitivity'].forEach(x=>document.getElementById(x).addEventListener('input',renderInventory));
+  ['invSearch','invStatus','invSensitivity','invDrug'].forEach(x=>document.getElementById(x).addEventListener('input',renderInventory));
   ['boxSearch','boxStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderBoxes));
   ['logSearch'].forEach(x=>document.getElementById(x).addEventListener('input',renderLogistics));
   ['inspSearch','inspStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderInspection));
@@ -401,11 +405,17 @@ function renderDashboard(){
   inv.filter(x=>x.remaining>0).slice(0,3).forEach(x=>todos.push(`⚠ ${x.itemName} 仍有 ${qtyText(x.remaining,x.unit)} 待处理`));
   document.getElementById('todoList').innerHTML=todos.length?`<div class="list">${todos.map(x=>`<div>${esc(x)}</div>`).join('')}</div>`:`<div class="empty">目前没有明显待处理事项</div>`;
 }
+function sameId(a,b){return String(a??'')===String(b??'')}
 function allocationUsedForPurchase(purchaseId){
-  return sum(S.allocations.filter(a=>a.purchaseId===purchaseId), a=>a.plannedQty||0);
+  return sum(S.allocations.filter(a=>sameId(a.purchaseId,purchaseId)), a=>Math.max(0,Number(a.plannedQty??a.qtyValue)||0));
 }
 function purchaseRemaining(p){
   return Math.max(0,(Number(p.qtyValue)||0)-allocationUsedForPurchase(p.id));
+}
+function allocationsForGroup(g){
+  const key=inventoryGroupKey(g);
+  const ids=new Set((g.sources||[]).map(p=>String(p.id)));
+  return S.allocations.filter(a=>ids.has(String(a.purchaseId)) || a.itemKey===key);
 }
 function inventoryGroups(){
   const active=S.purchases.filter(p=>!p.deleted);
@@ -423,14 +433,14 @@ function inventoryGroups(){
   }
   for(const g of map.values()){
     const key=g.itemName+'||'+(g.unit||'');
-    g.allocations=S.allocations.filter(a=>a.itemKey===key);
-    g.home=sum(g.allocations,a=>a.destinationType==='home'?(Number(a.plannedQty)||0):0);
-    g.other=sum(g.allocations,a=>a.destinationType==='other'?(Number(a.plannedQty)||0):0);
-    g.plannedBox=sum(g.allocations,a=>a.destinationType==='box'?(Number(a.plannedQty)||0):0);
+    g.allocations=allocationsForGroup(g);
+    g.home=sum(g.allocations,a=>a.destinationType==='home'?(Number(a.plannedQty??a.qtyValue)||0):0);
+    g.other=sum(g.allocations,a=>a.destinationType==='other'?(Number(a.plannedQty??a.qtyValue)||0):0);
+    g.plannedBox=sum(g.allocations,a=>a.destinationType==='box'?(Number(a.plannedQty??a.qtyValue)||0):0);
     g.packedBox=sum(g.allocations,a=>a.destinationType==='box'?(Number(a.packedQty)||0):0);
-    g.allocated=g.home+g.other+g.plannedBox;
-    // 待分配 = 原始采购数量 - 所有已建立去向的分配数量
-    g.remaining=Math.max(0,g.rawQty-g.allocated);
+    // 统一库存引擎：待分配直接等于所有采购来源剩余量之和，避免与分配记录的关联键产生偏差。
+    g.remaining=sum(g.sources,p=>purchaseRemaining(p));
+    g.allocated=Math.max(0,g.rawQty-g.remaining);
     // 海运中只统计已经封箱或正在运输的箱子；已到货/查验完成不再算海运中。
     const transitStatuses=new Set(['已封箱','国内运输','国际运输']);
     g.inTransit=S.allocations.reduce((total,a)=>{
@@ -444,7 +454,7 @@ function inventoryGroups(){
   }
   return [...map.values()];
 }
-function allocationByGroup(g){return S.allocations.filter(a=>a.itemKey===g.itemName+'||'+(g.unit||''))}
+function allocationByGroup(g){return allocationsForGroup(g)}
 function inventoryGroupKey(g){return g.itemName+'||'+(g.unit||'')}
 function itemSensitivity(g){
   const key=inventoryGroupKey(g);
@@ -475,8 +485,16 @@ function renderInventory(){
   const search=(document.getElementById('invSearch')?.value||'').toLowerCase();
   const status=document.getElementById('invStatus')?.value||'all';
   const sensitivity=document.getElementById('invSensitivity')?.value||'all';
+  const drugFilter=document.getElementById('invDrug')?.value||'all';
   let rows=inventoryGroups().filter(g=>!search||g.itemName.toLowerCase().includes(search)||g.sources.some(p=>(p.orderNo||'').toLowerCase().includes(search)));
-  rows=rows.filter(g=>status==='all'||(status==='pending'&&g.remaining>0&&g.allocated===0)||(status==='partial'&&g.remaining>0&&g.allocated>0)||(status==='allocated'&&g.remaining<=1e-9));
+  // 药品筛选是独立维度：选择“全部药品”时必须显示所有已标记药品，
+  // 包括已经全部分配、已装箱或留存在家中的药品，不能再被库存状态筛选隐藏。
+  if(drugFilter==='drug'){
+    rows=rows.filter(g=>isDrug(g));
+  }else{
+    rows=rows.filter(g=>status==='all'||(status==='pending'&&g.remaining>0&&g.allocated===0)||(status==='partial'&&g.remaining>0&&g.allocated>0)||(status==='allocated'&&g.remaining<=1e-9));
+    rows=rows.filter(g=>drugFilter==='all'||(drugFilter==='non_drug'&&!isDrug(g)));
+  }
   rows=rows.filter(g=>sensitivity==='all'||(sensitivity==='non_sensitive'&&itemSensitivity(g)==='非敏感货')||(sensitivity==='sensitive'&&itemSensitivity(g)==='敏感货'));
   const body=document.getElementById('inventoryBody');
   if(!body)return;
@@ -484,7 +502,7 @@ function renderInventory(){
     const key=encodeURIComponent(inventoryGroupKey(g));
     return `<tr>
       <td><input class="inv-check" type="checkbox" value="${key}" onchange="updateInventorySelection()"></td>
-      <td><b>${esc(g.itemName)}</b></td>
+      <td><b>${isDrug(g)?'💊 ':''}${esc(g.itemName)}</b> ${isDrug(g)?'<span class="badge green">药品</span>':''}<button class="btn small ${isDrug(g)?'danger':''}" style="margin-left:6px" onclick="event.stopPropagation();${isDrug(g)?`unmarkDrug('${key}')`:`markInventoryItemAsDrug('${key}')`}">${isDrug(g)?'取消标记':'标记为药品'}</button></td>
       <td>${sensitivityBadge(g)} <button class="btn small" onclick="setItemSensitivity('${key}')">${itemSensitivity(g)==='非敏感货'?'改为敏感':'标为非敏感'}</button></td>
       <td><b>${qtyText(g.rawQty,g.unit)}</b></td>
       <td>${fmtNum(g.rawWeightKg)} kg</td>
@@ -501,8 +519,20 @@ function renderInventory(){
   updateInventorySelection();
 }
 function updateInventorySelection(){
-  const n=document.querySelectorAll('.inv-check:checked').length;
+  const checked=[...document.querySelectorAll('.inv-check:checked')];
+  const n=checked.length;
+  let weight=0;
+  const groups=inventoryGroups();
+  checked.forEach(x=>{
+    const key=decodeURIComponent(x.value);
+    const g=groups.find(v=>inventoryGroupKey(v)===key);
+    if(!g)return;
+    const rawQty=Number(g.rawQty)||0;
+    const perUnit=rawQty>0?(Number(g.rawWeightKg)||0)/rawQty:0;
+    weight+=perUnit*(Number(g.remaining)||0);
+  });
   const el=document.getElementById('invSelectedCount'); if(el)el.textContent=`已选 ${n} 项`;
+  const wel=document.getElementById('invSelectedWeight'); if(wel)wel.textContent=`所选库存重量 ${fmtNum(weight)} kg`;
   const all=document.getElementById('invSelectAll'); if(all){const boxes=[...document.querySelectorAll('.inv-check')];all.checked=boxes.length>0&&boxes.every(x=>x.checked);all.indeterminate=boxes.some(x=>x.checked)&&!all.checked;}
 }
 function toggleAllInventory(checked){
@@ -512,8 +542,46 @@ function toggleAllInventory(checked){
 function selectedInventoryGroups(){
   return [...document.querySelectorAll('.inv-check:checked')].map(x=>decodeURIComponent(x.value));
 }
-function openInventoryDetail(ie,ue){const item=decodeURIComponent(ie),unit=decodeURIComponent(ue),g=inventoryGroups().find(x=>x.itemName===item&&x.unit===unit);if(!g)return;const src=g.sources.map(p=>`<div class="list-item"><span>${esc(p.orderNo||'无订单号')} · ${fmtDate(p.enteredAt)}<br><span class="muted">数量 ${qtyText(p.qtyValue,p.qtyUnit)} · 重量 ${fmtNum(p.weightKg)} kg · ${fmtMoney(p.priceRmb)}</span></span><span><b>剩余 ${qtyText(purchaseRemaining(p),p.qtyUnit)}</b> <button class="btn small" onclick="openEditPurchase('${p.id}')">编辑</button></span></div>`).join('');const al=allocationByGroup(g).map(a=>`<div class="list-item"><span>${qtyText(a.plannedQty,a.qtyUnit)} → ${esc(allocationDisplayDestination(a))}</span><span>${a.destinationType==='box'&&a.packedQty!=null?'已装 '+qtyText(a.packedQty,a.qtyUnit)+' ':''}<button class="btn small" onclick="openMoveAllocation('${a.id}')">移动</button></span></div>`).join('');openModal(`<div class="modal-head"><div><h3>${esc(item)}</h3><div class="muted">${esc(unit||'')}</div></div><button class="btn icon" onclick="closeModal()">×</button></div><div class="detail-grid"><div class="detail"><label>原始数量</label><strong>${qtyText(g.rawQty,g.unit)}</strong></div><div class="detail"><label>待处理</label><strong>${qtyText(g.remaining,g.unit)}</strong></div><div class="detail"><label>采购金额</label><strong>${fmtMoney(g.spend)}</strong></div><div class="detail"><label>原始总重量</label><strong>${fmtNum(g.weightKg)} kg</strong></div></div><h4>采购来源</h4><div>${src||'<div class="empty">无</div>'}</div><h4 style="margin-top:16px">去向 / 分配</h4><div>${al||'<div class="empty">尚未分配</div>'}</div><div class="modal-foot"><button class="btn primary" onclick="closeModal();openAllocate('${encodeURIComponent(item)}','${encodeURIComponent(unit)}')">继续分配</button></div>`)}
-
+function itemMetaFor(g){S.itemMeta=S.itemMeta||{};const key=inventoryGroupKey(g);return S.itemMeta[key]||{}}
+function isDrug(g){return itemMetaFor(g).isDrug===true}
+async function markSelectedAsDrug(){
+  const keys=selectedInventoryGroups();
+  if(!keys.length)return alert('请先在库存列表勾选需要标记的商品');
+  S.itemMeta=S.itemMeta||{};
+  keys.forEach(key=>{S.itemMeta[key]={...(S.itemMeta[key]||{}),isDrug:true};});
+  await saveState();refresh();
+  alert(`已将 ${keys.length} 项库存标记为药物。可进入“详情/调整”填写规格信息。`);
+}
+async function markInventoryItemAsDrug(keyEncoded){
+  const key=decodeURIComponent(keyEncoded);
+  S.itemMeta=S.itemMeta||{};
+  S.itemMeta[key]={...(S.itemMeta[key]||{}),isDrug:true};
+  await saveState();
+  refresh();
+}
+async function unmarkDrug(keyEncoded){
+  const key=decodeURIComponent(keyEncoded);
+  S.itemMeta=S.itemMeta||{};
+  if(S.itemMeta[key])S.itemMeta[key]={...S.itemMeta[key],isDrug:false};
+  await saveState();refresh();
+}
+async function saveDrugMeta(keyEncoded){
+  const key=decodeURIComponent(keyEncoded);
+  S.itemMeta=S.itemMeta||{};
+  const old=S.itemMeta[key]||{};
+  S.itemMeta[key]={...old,isDrug:true,activeIngredient:document.getElementById('drugActiveIngredient')?.value.trim()||'',content:document.getElementById('drugContent')?.value.trim()||'',grams:document.getElementById('drugGrams')?.value.trim()||'',dosageForm:document.getElementById('drugDosageForm')?.value.trim()||'',manufacturer:document.getElementById('drugManufacturer')?.value.trim()||'',drugNote:document.getElementById('drugNote')?.value.trim()||''};
+  await saveState();closeModal();refresh();navigate('inventory');
+}
+function openInventoryDetail(ie,ue){
+  const item=decodeURIComponent(ie),unit=decodeURIComponent(ue),g=inventoryGroups().find(x=>x.itemName===item&&x.unit===unit);
+  if(!g)return;
+  const key=inventoryGroupKey(g),meta=itemMetaFor(g);
+  const src=g.sources.map(p=>`<div class="list-item"><span>${esc(p.orderNo||'无订单号')} · ${fmtDate(p.enteredAt)}<br><span class="muted">数量 ${qtyText(p.qtyValue,p.qtyUnit)} · 重量 ${fmtNum(p.weightKg)} kg · ${fmtMoney(p.priceRmb)}</span></span><span><b>剩余 ${qtyText(purchaseRemaining(p),p.qtyUnit)}</b> <button class="btn small" onclick="openEditPurchase('${p.id}')">编辑</button></span></div>`).join('');
+  const al=allocationByGroup(g).map(a=>`<div class="list-item"><span>${qtyText(a.plannedQty,a.qtyUnit)} → ${esc(allocationDisplayDestination(a))}</span><span>${a.destinationType==='box'&&a.packedQty!=null?'已装 '+qtyText(a.packedQty,a.qtyUnit)+' ':''}<button class="btn small" onclick="openMoveAllocation('${a.id}')">移动</button></span></div>`).join('');
+  const drugBlock=isDrug(g)?`<div class="notice" style="margin-top:16px"><b>💊 药物信息</b></div><div class="form-grid"><div class="field"><label>有效成分 / 药物名称</label><input id="drugActiveIngredient" value="${esc(meta.activeIngredient||'')}" placeholder="例如：阿莫西林"></div><div class="field"><label>含量 / 浓度</label><input id="drugContent" value="${esc(meta.content||'')}" placeholder="例如：500mg / 5mg/mL"></div><div class="field"><label>克数 / 净含量</label><input id="drugGrams" value="${esc(meta.grams||'')}" placeholder="例如：10g / 100g"></div><div class="field"><label>剂型</label><input id="drugDosageForm" value="${esc(meta.dosageForm||'')}" placeholder="例如：片剂、胶囊、药膏"></div><div class="field"><label>生产厂家</label><input id="drugManufacturer" value="${esc(meta.manufacturer||'')}" placeholder="可选"></div><div class="field full"><label>药物备注</label><textarea id="drugNote" placeholder="例如：用法、保存要求等">${esc(meta.drugNote||'')}</textarea></div></div>`:'';
+  const drugActions=isDrug(g)?`<button class="btn" onclick="unmarkDrug('${encodeURIComponent(key)}');closeModal()">取消药物标记</button>`:`<button class="btn" onclick="S.itemMeta=S.itemMeta||{};S.itemMeta['${key.replace(/'/g,"\'")}']={...(S.itemMeta['${key.replace(/'/g,"\'")}']||{}),isDrug:true};saveState().then(()=>{closeModal();openInventoryDetail('${encodeURIComponent(item)}','${encodeURIComponent(unit)}')})">标记为药物</button>`;
+  openModal(`<div class="modal-head"><div><h3>${esc(item)}</h3><div class="muted">${esc(unit||'')} ${isDrug(g)?' · 💊 药物':''}</div></div><button class="btn icon" onclick="closeModal()">×</button></div><div class="detail-grid"><div class="detail"><label>原始数量</label><strong>${qtyText(g.rawQty,g.unit)}</strong></div><div class="detail"><label>待处理</label><strong>${qtyText(g.remaining,g.unit)}</strong></div><div class="detail"><label>采购金额</label><strong>${fmtMoney(g.spend)}</strong></div><div class="detail"><label>原始总重量</label><strong>${fmtNum(g.weightKg)} kg</strong></div></div>${drugBlock}<h4>采购来源</h4><div>${src||'<div class="empty">无</div>'}</div><h4 style="margin-top:16px">去向 / 分配</h4><div>${al||'<div class="empty">尚未分配</div>'}</div><div class="modal-foot">${drugActions}<button class="btn" onclick="closeModal()">关闭</button>${isDrug(g)?`<button class="btn primary" onclick="saveDrugMeta('${encodeURIComponent(key)}')">保存药物信息</button>`:`<button class="btn primary" onclick="closeModal();openAllocate('${encodeURIComponent(item)}','${encodeURIComponent(unit)}')">继续分配</button>`}</div>`);
+}
 function openEditPurchase(pid){
   const p=S.purchases.find(x=>x.id===pid);if(!p)return;
   const allocated=allocationUsedForPurchase(pid);
@@ -541,7 +609,7 @@ async function saveEditPurchase(pid){
   if(!Number.isFinite(weight)||weight<0)return alert('总重量必须是有效数字');
   if(!Number.isFinite(price)||price<0)return alert('采购价格必须是有效数字');
   Object.assign(p,{seq:document.getElementById('epSeq').value.trim(),itemName:item,qtyValue:qty,qtyUnit:unit,weightKg:weight,productName:document.getElementById('epProduct').value.trim(),orderNo:document.getElementById('epOrder').value.trim(),priceRmb:price,unitPrice:qty?price/qty:null,enteredAt:document.getElementById('epDate').value?new Date(document.getElementById('epDate').value+'T00:00:00').toISOString():p.enteredAt});
-  S.allocations.filter(a=>a.purchaseId===pid).forEach(a=>{a.itemName=p.itemName;a.qtyUnit=p.qtyUnit||'';a.itemKey=p.itemName+'||'+(p.qtyUnit||'')});
+  S.allocations.filter(a=>sameId(a.purchaseId,pid)).forEach(a=>{a.itemName=p.itemName;a.qtyUnit=p.qtyUnit||'';a.itemKey=p.itemName+'||'+(p.qtyUnit||'')});
   S.logs.push({id:id('log'),time:now(),type:'edit',text:`编辑采购/库存：${p.itemName}`});
   await saveState();closeModal();refresh();navigate('inventory');
 }
@@ -564,11 +632,13 @@ function openAllocate(ie,ue){
     <div class="modal-foot"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveAllocation('${encodeURIComponent(item)}','${encodeURIComponent(unit)}')">确认分配</button></div>`);
   document.getElementById('alQty').addEventListener('input',()=>updateAllocationPreview(g));
   document.querySelectorAll('.src-check').forEach(x=>x.addEventListener('change',()=>updateAllocationPreview(g)));
+  document.querySelectorAll('.src-check').forEach(x=>x.checked=true);
+  updateAllocationPreview(g);
   if(!boxes.length)document.getElementById('alDest').value='home';
 }
 function toggleAllocDest(){const d=document.getElementById('alDest').value;document.getElementById('alBoxField').classList.toggle('hidden',d!=='box');document.getElementById('alOtherField').classList.toggle('hidden',d!=='other')}
 function selectedSourcePurchases(){
-  return [...document.querySelectorAll('.src-check:checked')].map(x=>S.purchases.find(p=>p.id===x.value)).filter(Boolean);
+  return [...document.querySelectorAll('.src-check:checked')].map(x=>S.purchases.find(p=>sameId(p.id,x.value))).filter(Boolean);
 }
 function updateAllocationPreview(g){
   const q=num(document.getElementById('alQty').value)||0, selected=selectedSourcePurchases();
@@ -707,7 +777,7 @@ function openNewBox(){
 }
 async function saveNewBox(){
   const code=document.getElementById('nbCode').value.trim();if(!code)return alert('请输入箱号');if(S.boxes.some(b=>b.code===code))return alert('箱号已存在');
-  const b={id:id('box'),code,status:'待装箱',tareWeightKg:num(document.getElementById('nbTare').value)||0,type:document.getElementById('nbType').value.trim(),note:document.getElementById('nbNote').value,actualTotalWeightKg:0,domesticCarrier:'',domesticTrackingNo:'',dispatchDate:'',internationalCarrier:'',internationalTrackingNo:'',seaNo:'',eta:'',arrivedDate:'',createdAt:now(),sealedAt:null};
+  const b={id:id('box'),code,status:'待装箱',tareWeightKg:num(document.getElementById('nbTare').value)||0,type:document.getElementById('nbType').value.trim(),note:document.getElementById('nbNote').value,actualTotalWeightKg:0,domesticCarrier:'',domesticTrackingNo:'',dispatchDate:'',internationalCarrier:'',internationalTrackingNo:'',internationalFreightRmb:0,domesticFreightRmb:0,seaNo:'',eta:'',arrivedDate:'',createdAt:now(),sealedAt:null};
   S.boxes.push(b);S.logs.push({id:id('log'),time:now(),type:'box',text:`新建 ${code}`});await saveState();closeModal();refresh();openBox(b.id)
 }
 
@@ -840,8 +910,8 @@ async function sealBox(bid){
 }
 async function reopenBox(bid){const b=S.boxes.find(x=>x.id===bid);if(!confirm('重新开箱后可以修改装箱数量；是否继续？'))return;b.status='装箱中';await saveState();closeModal();openBox(bid)}
 function openLogistics(bid){const b=S.boxes.find(x=>x.id===bid);openModal(`<div class="modal-head"><div><h3>${esc(b.code)} · 物流信息</h3></div><button class="btn icon" onclick="closeModal()">×</button></div>
-<div class="form-grid"><div class="field"><label>国内物流公司</label><input id="lgDC" value="${esc(b.domesticCarrier||'')}"></div><div class="field"><label>国内物流单号</label><input id="lgDN" value="${esc(b.domesticTrackingNo||'')}"></div><div class="field"><label>寄出日期</label><input id="lgDD" type="date" value="${esc(b.dispatchDate||'')}"></div><div class="field"><label>国际物流公司</label><input id="lgIC" value="${esc(b.internationalCarrier||'')}"></div><div class="field"><label>国际物流单号</label><input id="lgIN" value="${esc(b.internationalTrackingNo||'')}"></div><div class="field"><label>海运号</label><input id="lgSN" value="${esc(b.seaNo||'')}"></div><div class="field"><label>预计到货日期</label><input id="lgETA" type="date" value="${esc(b.eta||'')}"></div><div class="field"><label>实际到货日期</label><input id="lgArr" type="date" value="${esc(b.arrivedDate||'')}"></div></div><div class="modal-foot"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveLogistics('${b.id}')">保存</button></div>`)}
-async function saveLogistics(bid){const b=S.boxes.find(x=>x.id===bid);Object.assign(b,{domesticCarrier:document.getElementById('lgDC').value.trim(),domesticTrackingNo:document.getElementById('lgDN').value.trim(),dispatchDate:document.getElementById('lgDD').value,internationalCarrier:document.getElementById('lgIC').value.trim(),internationalTrackingNo:document.getElementById('lgIN').value.trim(),seaNo:document.getElementById('lgSN').value.trim(),eta:document.getElementById('lgETA').value,arrivedDate:document.getElementById('lgArr').value});
+<div class="form-grid"><div class="field"><label>国内物流公司</label><input id="lgDC" value="${esc(b.domesticCarrier||'')}"></div><div class="field"><label>国内物流单号</label><input id="lgDN" value="${esc(b.domesticTrackingNo||'')}"></div><div class="field"><label>国内段运费 RMB</label><input id="lgDF" type="number" min="0" step="0.01" value="${Number(b.domesticFreightRmb)||0}"></div><div class="field"><label>寄出日期</label><input id="lgDD" type="date" value="${esc(b.dispatchDate||'')}"></div><div class="field"><label>国际物流公司</label><input id="lgIC" value="${esc(b.internationalCarrier||'')}"></div><div class="field"><label>国际物流单号</label><input id="lgIN" value="${esc(b.internationalTrackingNo||'')}"></div><div class="field"><label>国际段运费 RMB</label><input id="lgIF" type="number" min="0" step="0.01" value="${Number(b.internationalFreightRmb)||0}"></div><div class="field"><label>海运号</label><input id="lgSN" value="${esc(b.seaNo||'')}"></div><div class="field"><label>预计到货日期</label><input id="lgETA" type="date" value="${esc(b.eta||'')}"></div><div class="field"><label>实际到货日期</label><input id="lgArr" type="date" value="${esc(b.arrivedDate||'')}"></div></div><div class="modal-foot"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveLogistics('${b.id}')">保存</button></div>`)}
+async function saveLogistics(bid){const b=S.boxes.find(x=>x.id===bid);Object.assign(b,{domesticCarrier:document.getElementById('lgDC').value.trim(),domesticTrackingNo:document.getElementById('lgDN').value.trim(),domesticFreightRmb:Math.max(0,num(document.getElementById('lgDF').value)||0),dispatchDate:document.getElementById('lgDD').value,internationalCarrier:document.getElementById('lgIC').value.trim(),internationalTrackingNo:document.getElementById('lgIN').value.trim(),internationalFreightRmb:Math.max(0,num(document.getElementById('lgIF').value)||0),seaNo:document.getElementById('lgSN').value.trim(),eta:document.getElementById('lgETA').value,arrivedDate:document.getElementById('lgArr').value});
   if(b.arrivedDate)b.status='已到货'; else if(b.internationalTrackingNo||b.seaNo)b.status='国际运输'; else if(b.domesticTrackingNo)b.status='国内运输';
   await saveState();closeModal();refresh();navigate('logistics');
 }
@@ -849,10 +919,12 @@ function renderLogistics(){const q=document.getElementById('logSearch').value.to
 
 function inspectionFor(bid){return S.inspections.find(x=>x.boxId===bid)}
 function renderInspection(){const q=document.getElementById('inspSearch').value.toLowerCase(),st=document.getElementById('inspStatus').value;const rows=S.boxes.filter(b=>b.status==='已到货'||b.status==='查验完成').filter(b=>!q||[b.code,b.seaNo].join(' ').toLowerCase().includes(q)).map(b=>({b,i:inspectionFor(b.id)})).filter(x=>st==='all'||(st==='待查验'&&!x.i)||(st==='异常'&&x.i?.status==='异常')||(st==='已完成'&&x.i?.status==='已完成'));document.getElementById('inspBody').innerHTML=rows.length?rows.map(x=>`<tr><td><b>${esc(x.b.code)}</b></td><td>${statusBadge(x.b.status)}</td><td>${esc(x.b.seaNo||'—')}</td><td>${fmtNum(x.b.actualTotalWeightKg)} kg</td><td>${esc(x.b.arrivedDate||'—')}</td><td>${statusBadge(x.i?.status||'待查验')}</td><td><button class="btn small primary" onclick="openInspection('${x.b.id}')">查验</button></td></tr>`).join(''):`<tr><td colspan="7"><div class="empty">暂无符合条件的到货箱</div></td></tr>`}
+function inspectionDrugMetaForAllocation(a){const g=groupForAllocation(a);return g?itemMetaFor(g):{};}
+function drugSpecText(meta){const parts=[];if(meta.activeIngredient)parts.push('成分：'+meta.activeIngredient);if(meta.content)parts.push('含量：'+meta.content);if(meta.grams)parts.push('净含量：'+meta.grams);if(meta.dosageForm)parts.push('剂型：'+meta.dosageForm);if(meta.manufacturer)parts.push('厂家：'+meta.manufacturer);return parts.join(' · ')||'未填写药品规格';}
 function openInspection(bid){
-  const b=S.boxes.find(x=>x.id===bid),lines=boxLines(b);let ins=inspectionFor(bid);if(!ins){ins={id:id('insp'),boxId:bid,status:'待查验',arrivedDate:b.arrivedDate||localDate(),items:lines.map(a=>({allocationId:a.id,itemName:a.itemName,unit:a.qtyUnit,expectedQty:Number(a.packedQty||0),actualQty:null,issue:'',photo:null})),note:'',createdAt:now()}}
-  else {const existing=new Map(ins.items.map(x=>[x.allocationId,x]));ins.items=lines.map(a=>existing.get(a.id)||({allocationId:a.id,itemName:a.itemName,unit:a.qtyUnit,expectedQty:Number(a.packedQty||0),actualQty:null,issue:'',photo:null}));}
-  const body=ins.items.map(it=>`<tr><td>${esc(it.itemName)}</td><td>${qtyText(it.expectedQty,it.unit)}</td><td><input id="ins_${it.allocationId}" style="width:100px;border:1px solid var(--line);border-radius:8px;padding:7px" type="number" min="0" step="any" value="${it.actualQty??''}" onchange="setInsVal('${it.allocationId}',this.value)"> <button class="btn small" type="button" onclick="document.getElementById('photo_${it.allocationId}').click()">📷${it.photo?'✓':''}</button><input id="photo_${it.allocationId}" class="hidden" type="file" accept="image/*" capture="environment" onchange="attachInspectionPhoto('${it.allocationId}',this.files[0])"></td><td id="diff_${it.allocationId}">${it.actualQty==null?'—':fmtNum(it.actualQty-it.expectedQty)}</td><td>${esc(it.issue||'')}</td></tr>`).join('');
+  const b=S.boxes.find(x=>x.id===bid),lines=boxLines(b);let ins=inspectionFor(bid);if(!ins){ins={id:id('insp'),boxId:bid,status:'待查验',arrivedDate:b.arrivedDate||localDate(),items:lines.map(a=>({allocationId:a.id,itemName:a.itemName,unit:a.qtyUnit,expectedQty:Number(a.packedQty||0),actualQty:null,issue:'',photo:null,drugCheck:null})),note:'',createdAt:now()}}
+  else {const existing=new Map(ins.items.map(x=>[x.allocationId,x]));ins.items=lines.map(a=>existing.get(a.id)||({allocationId:a.id,itemName:a.itemName,unit:a.qtyUnit,expectedQty:Number(a.packedQty||0),actualQty:null,issue:'',photo:null,drugCheck:null}));}
+  const body=ins.items.map(it=>{const a=lines.find(x=>x.id===it.allocationId);const meta=a?inspectionDrugMetaForAllocation(a):{};const drug=meta.isDrug===true;const spec=drug?drugSpecText(meta):'';return `<tr><td>${drug?'💊 ':''}${esc(it.itemName)} ${drug?'<span class="badge green">药品</span>':''}${drug?`<div class="muted" style="white-space:normal;max-width:420px;margin-top:4px"><b>规格核对：</b>${esc(spec)}</div><select id="drug_${it.allocationId}" onchange="setDrugCheck('${it.allocationId}',this.value)" style="margin-top:5px;border:1px solid var(--line);border-radius:8px;padding:6px"><option value="" ${!it.drugCheck?'selected':''}>请选择规格核对结果</option><option value="match" ${it.drugCheck==='match'?'selected':''}>✓ 规格一致</option><option value="mismatch" ${it.drugCheck==='mismatch'?'selected':''}>⚠ 规格不一致</option></select>`:''}</td><td>${qtyText(it.expectedQty,it.unit)}</td><td><input id="ins_${it.allocationId}" style="width:100px;border:1px solid var(--line);border-radius:8px;padding:7px" type="number" min="0" step="any" value="${it.actualQty??''}" onchange="setInsVal('${it.allocationId}',this.value)"> <button class="btn small" type="button" onclick="document.getElementById('photo_${it.allocationId}').click()">📷${it.photo?'✓':''}</button><input id="photo_${it.allocationId}" class="hidden" type="file" accept="image/*" capture="environment" onchange="attachInspectionPhoto('${it.allocationId}',this.files[0])"></td><td id="diff_${it.allocationId}">${it.actualQty==null?'—':fmtNum(it.actualQty-it.expectedQty)}</td><td>${esc(it.issue||'')}</td></tr>`}).join('');
   openModal(`<div class="modal-head"><div><h3>${esc(b.code)} · 到货查验</h3><div class="muted">海运号：${esc(b.seaNo||'—')} · 整箱重量：${fmtNum(b.actualTotalWeightKg)} kg</div></div><button class="btn icon" onclick="closeModal()">×</button></div>
   <div class="table-wrap"><table><thead><tr><th>物品</th><th>应有数量</th><th>实际数量</th><th>差异</th><th>异常</th></tr></thead><tbody>${body||'<tr><td colspan="5"><div class="empty">封箱时没有装箱明细</div></td></tr>'}</tbody></table></div>
   <div class="form-grid" style="margin-top:12px"><div class="field full"><label>整体备注</label><textarea id="insNote">${esc(ins.note||'')}</textarea></div></div>
@@ -860,15 +932,39 @@ function openInspection(bid){
   <div class="modal-foot"><button class="btn" onclick="closeModal()">关闭</button><button class="btn primary" onclick="saveInspection('${b.id}')">完成查验</button></div>`);
   window._activeInspection=ins;
 }
+function setDrugCheck(aid,v){if(!window._activeInspection)return;const it=window._activeInspection.items.find(x=>x.allocationId===aid);if(it)it.drugCheck=v||null}
 function setInsVal(aid,v){if(!window._activeInspection)return;const it=window._activeInspection.items.find(x=>x.allocationId===aid);if(!it)return;it.actualQty= num(v);document.getElementById('diff_'+aid).textContent=Number.isFinite(it.actualQty)?fmtNum(it.actualQty-it.expectedQty):'—'}
 async function attachInspectionPhoto(aid,file){if(!file||!window._activeInspection)return;const it=window._activeInspection.items.find(x=>x.allocationId===aid);if(!it)return;it.photo=await compressImage(file);const btn=document.querySelector(`button[onclick=\"document.getElementById('photo_${aid}').click()\"]`);if(btn)btn.textContent='📷✓'}
 function compressImage(file){return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=()=>{const max=1280,scale=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext('2d').drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',.78))};img.onerror=reject;img.src=fr.result};fr.onerror=reject;fr.readAsDataURL(file)})}
-async function saveInspection(bid){const b=S.boxes.find(x=>x.id===bid),ins=window._activeInspection;if(!ins)return;ins.note=document.getElementById('insNote').value;let complete=true,abnormal=false;ins.items.forEach(it=>{if(it.actualQty==null||!Number.isFinite(it.actualQty)){complete=false}else if(Math.abs(it.actualQty-it.expectedQty)>1e-9)abnormal=true});if(!complete)return alert('请先填写所有商品的实际到货数量');ins.status=abnormal?'异常':'已完成';ins.updatedAt=now();const idx=S.inspections.findIndex(x=>x.id===ins.id);if(idx>=0)S.inspections[idx]=ins;else S.inspections.push(ins);if(!abnormal)b.status='查验完成';S.logs.push({id:id('log'),time:now(),type:'inspection',text:`${b.code} 查验 ${ins.status}`});await saveState();closeModal();refresh();navigate('inspection')}
+async function saveInspection(bid){const b=S.boxes.find(x=>x.id===bid),ins=window._activeInspection;if(!ins)return;ins.note=document.getElementById('insNote').value;let complete=true,abnormal=false;ins.items.forEach(it=>{const a=boxLines(b).find(x=>x.id===it.allocationId);const meta=a?inspectionDrugMetaForAllocation(a):{};if(it.actualQty==null||!Number.isFinite(it.actualQty)){complete=false}else if(Math.abs(it.actualQty-it.expectedQty)>1e-9)abnormal=true;if(meta.isDrug===true&&(it.drugCheck!=='match')){complete=false;if(it.drugCheck==='mismatch')abnormal=true;}});if(!complete)return alert('请先完成所有商品数量核对；标记为药品的还必须完成规格核对（选择“规格一致”或“规格不一致”）。');ins.status=abnormal?'异常':'已完成';ins.updatedAt=now();const idx=S.inspections.findIndex(x=>x.id===ins.id);if(idx>=0)S.inspections[idx]=ins;else S.inspections.push(ins);if(!abnormal)b.status='查验完成';S.logs.push({id:id('log'),time:now(),type:'inspection',text:`${b.code} 查验 ${ins.status}`});await saveState();closeModal();refresh();navigate('inspection')}
 function printBox(bid){const b=S.boxes.find(x=>x.id===bid),lines=boxLines(b);const html=`<html><head><title>${b.code}装箱单</title><style>body{font-family:Arial,"Microsoft YaHei";padding:30px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:8px;text-align:left}h1{margin-top:0}</style></head><body><h1>${esc(b.code)} 装箱清单</h1><p>海运号：${esc(b.seaNo||'—')}　整箱重量：${fmtNum(b.actualTotalWeightKg)} kg</p><table><tr><th>物品</th><th>数量</th><th>订单号</th></tr>${lines.map(a=>{const p=S.purchases.find(p=>p.id===a.purchaseId)||{};return `<tr><td>${esc(a.itemName)}</td><td>${qtyText(a.packedQty||0,a.qtyUnit)}</td><td>${esc(p.orderNo||'—')}</td></tr>`}).join('')}</table><script>window.print()<\/script></body></html>`;const w=window.open();w.document.write(html);w.document.close()}
-function renderFinance(){const activePurchases=S.purchases.filter(p=>!p.deleted),y=new Date().getFullYear(),m=String(new Date().getMonth()+1).padStart(2,'0'),total=sum(activePurchases,p=>p.priceRmb),yy=sum(activePurchases,p=>(p.enteredAt||'').startsWith(String(y))?p.priceRmb:0),mm=sum(activePurchases,p=>(p.enteredAt||'').startsWith(`${y}-${m}`)?p.priceRmb:0);document.getElementById('finTotal').textContent=fmtMoney(total);document.getElementById('finYear').textContent=fmtMoney(yy);document.getElementById('finMonth').textContent=fmtMoney(mm);document.getElementById('finYearLabel').textContent=String(y);document.getElementById('finMonthLabel').textContent=`${y}-${m}`;document.getElementById('finCount').textContent=S.purchases.filter(p=>!p.deleted).length;
-  const years={};S.purchases.filter(p=>!p.deleted).forEach(p=>{const k=(p.enteredAt||'').slice(0,4)||'未知';years[k]=(years[k]||0)+(p.priceRmb||0)});drawBars('yearChart',Object.entries(years).sort(), 'year');
-  const months={};for(let i=1;i<=12;i++)months[String(i).padStart(2,'0')]=0;S.purchases.filter(p=>!p.deleted).forEach(p=>{if((p.enteredAt||'').startsWith(String(y)))months[(p.enteredAt||'').slice(5,7)]=(months[(p.enteredAt||'').slice(5,7)]||0)+(p.priceRmb||0)});drawBars('monthChart',Object.entries(months), 'month');
-  const pm={};S.purchases.filter(p=>!p.deleted).forEach(p=>pm[p.itemName]=pm[p.itemName]||{count:0,qty:0,spend:0});S.purchases.filter(p=>!p.deleted).forEach(p=>{const x=pm[p.itemName];x.count++;x.qty+=p.qtyValue||0;x.spend+=p.priceRmb||0});document.getElementById('productSpendBody').innerHTML=Object.entries(pm).sort((a,b)=>b[1].spend-a[1].spend).slice(0,100).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.count}</td><td>${fmtNum(v.qty)}</td><td>${fmtMoney(v.spend)}</td></tr>`).join('')||'<tr><td colspan="4"><div class="empty">暂无采购记录</div></td></tr>';
+function renderFinance(){
+  const activePurchases=S.purchases.filter(p=>!p.deleted);
+  const y=new Date().getFullYear(),m=String(new Date().getMonth()+1).padStart(2,'0');
+  const total=sum(activePurchases,p=>p.priceRmb);
+  const domesticFreight=sum(S.boxes,b=>Number(b.domesticFreightRmb)||0);
+  const internationalFreight=sum(S.boxes,b=>Number(b.internationalFreightRmb)||0);
+  const grandTotal=total+domesticFreight+internationalFreight;
+  const yy=sum(activePurchases,p=>(p.enteredAt||'').startsWith(String(y))?p.priceRmb:0);
+  const mm=sum(activePurchases,p=>(p.enteredAt||'').startsWith(`${y}-${m}`)?p.priceRmb:0);
+  document.getElementById('finTotal').textContent=fmtMoney(total);
+  document.getElementById('finDomesticFreight').textContent=fmtMoney(domesticFreight);
+  document.getElementById('finInternationalFreight').textContent=fmtMoney(internationalFreight);
+  document.getElementById('finGrandTotal').textContent=fmtMoney(grandTotal);
+  document.getElementById('finYear').textContent=fmtMoney(yy);
+  document.getElementById('finMonth').textContent=fmtMoney(mm);
+  document.getElementById('finYearLabel').textContent=String(y);
+  document.getElementById('finMonthLabel').textContent=`${y}-${m}`;
+  document.getElementById('finCount').textContent=activePurchases.length;
+  const years={};activePurchases.forEach(p=>{const k=(p.enteredAt||'').slice(0,4)||'未知';years[k]=(years[k]||0)+(p.priceRmb||0)});drawBars('yearChart',Object.entries(years).sort(),'year');
+  const months={};for(let i=1;i<=12;i++)months[String(i).padStart(2,'0')]=0;activePurchases.forEach(p=>{if((p.enteredAt||'').startsWith(String(y))){const k=(p.enteredAt||'').slice(5,7);months[k]=(months[k]||0)+(p.priceRmb||0)}});drawBars('monthChart',Object.entries(months),'month');
+  const pm={};activePurchases.forEach(p=>{pm[p.itemName]=pm[p.itemName]||{count:0,qty:0,spend:0};const x=pm[p.itemName];x.count++;x.qty+=p.qtyValue||0;x.spend+=p.priceRmb||0});
+  document.getElementById('productSpendBody').innerHTML=Object.entries(pm).sort((a,b)=>b[1].spend-a[1].spend).slice(0,100).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.count}</td><td>${fmtNum(v.qty)}</td><td>${fmtMoney(v.spend)}</td></tr>`).join('')||'<tr><td colspan="4"><div class="empty">暂无采购记录</div></td></tr>';
+  const fb=document.getElementById('freightBody');
+  if(fb)fb.innerHTML=S.boxes.slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).map(b=>{
+    const df=Number(b.domesticFreightRmb)||0,inf=Number(b.internationalFreightRmb)||0;
+    return `<tr><td><b>${esc(b.code)}</b></td><td>${statusBadge(b.status)}</td><td>${esc(b.seaNo||'—')}</td><td>${fmtMoney(df)}</td><td>${fmtMoney(inf)}</td><td><b>${fmtMoney(df+inf)}</b></td><td><button class="btn small" onclick="openLogistics('${b.id}')">编辑运费</button></td></tr>`;
+  }).join('')||'<tr><td colspan="7"><div class="empty">暂无海运箱</div></td></tr>';
 }
 function drawBars(idv,entries,type){
   const el=document.getElementById(idv);
@@ -1041,9 +1137,30 @@ async function importMobileResults(file){if(!file)return;try{const obj=JSON.pars
 function exportInspectionResults(){const pack={type:'shipping-mobile-results',version:1,createdAt:now(),inspections:S.inspections};download(`查验结果_${stamp()}.json`,JSON.stringify(pack),'application/json')}
 function exportPurchasesCSV(){const head=['序号','物品名字','数量','重量kg','商品名称','订单号','价格RMB','单价RMB','录入日期'];const body=S.purchases.filter(p=>!p.deleted).map(p=>[p.seq,p.itemName,qtyText(p.qtyValue,p.qtyUnit),p.weightKg,p.productName,p.orderNo,p.priceRmb,p.unitPrice,p.enteredAt?.slice(0,10)]);download('采购记录.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
 function exportInventoryCSV(){const head=['物品','原始数量','已分配','待分配','留存家里','海运中','采购金额'];const body=inventoryGroups().map(g=>[g.itemName,g.rawQty,g.allocated,g.remaining,g.home,g.packedBox,g.spend]);download('库存.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
-function exportBoxesCSV(){const head=['箱号','状态','预计商品重量kg','箱体重量kg','预计整箱总重kg','实际整箱重量kg','海运号','国内物流','国内单号','国际物流','国际单号','预计到货','实际到货'];const body=S.boxes.map(b=>[b.code,b.status,plannedBoxGoodsWeight(b),b.tareWeightKg,estimatedBoxTotalWeight(b),b.actualTotalWeightKg,b.seaNo,b.domesticCarrier,b.domesticTrackingNo,b.internationalCarrier,b.internationalTrackingNo,b.eta,b.arrivedDate]);download('海运箱.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
+function exportBoxesCSV(){const head=['箱号','状态','预计商品重量kg','箱体重量kg','预计整箱总重kg','实际整箱重量kg','海运号','国内物流','国内单号','国内段运费RMB','国际物流','国际单号','国际段运费RMB','预计到货','实际到货'];const body=S.boxes.map(b=>[b.code,b.status,plannedBoxGoodsWeight(b),b.tareWeightKg,estimatedBoxTotalWeight(b),b.actualTotalWeightKg,b.seaNo,b.domesticCarrier,b.domesticTrackingNo,b.domesticFreightRmb||0,b.internationalCarrier,b.internationalTrackingNo,b.internationalFreightRmb||0,b.eta,b.arrivedDate]);download('海运箱.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
 function exportInspectionsCSV(){const head=['箱号','查验状态','商品','应有数量','实际数量','差异','备注'];const body=[];S.inspections.forEach(i=>{const b=S.boxes.find(b=>b.id===i.boxId);i.items.forEach(x=>body.push([b?.code,i.status,x.itemName,x.expectedQty,x.actualQty,x.actualQty==null?'':x.actualQty-x.expectedQty,i.note||'']))});download('到货查验.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
-function doGlobalSearch(q){q=q.trim().toLowerCase();if(!q)return;const p=S.purchases.filter(x=>[x.itemName,x.productName,x.orderNo].join(' ').toLowerCase().includes(q)).slice(0,50);const b=S.boxes.filter(x=>[x.code,x.seaNo,x.domesticTrackingNo,x.internationalTrackingNo,x.domesticCarrier,x.internationalCarrier].join(' ').toLowerCase().includes(q));document.getElementById('searchHint').textContent=`搜索：${q}`;document.getElementById('searchResults').innerHTML=`<div class="grid2"><div class="card"><h3>采购记录 (${p.length})</h3>${p.length?`<div class="list">${p.map(x=>`<div class="list-item"><span><b>${esc(x.itemName)}</b><br><span class="muted">${esc(x.orderNo||'无订单号')}</span></span><b>${fmtMoney(x.priceRmb)}</b></div>`).join('')}</div>`:'<div class="empty">无</div>'}</div><div class="card"><h3>海运箱 (${b.length})</h3>${b.length?`<div class="list">${b.map(x=>`<div class="list-item"><span><b>${esc(x.code)}</b><br>${statusBadge(x.status)}</span><span>${esc(x.seaNo||'—')}</span></div>`).join('')}</div>`:'<div class="empty">无</div>'}</div></div>`;navigate('search')}
+function doGlobalSearch(q){
+  q=q.trim().toLowerCase();if(!q)return;
+  const purchaseMatches=S.purchases.filter(x=>!x.deleted&&[x.itemName,x.productName,x.orderNo].join(' ').toLowerCase().includes(q)).slice(0,50);
+  const directBoxes=S.boxes.filter(x=>[x.code,x.seaNo,x.domesticTrackingNo,x.internationalTrackingNo,x.domesticCarrier,x.internationalCarrier].join(' ').toLowerCase().includes(q));
+  const relatedBoxIds=new Set();
+  purchaseMatches.forEach(p=>S.allocations.filter(a=>a.purchaseId===p.id&&a.destinationType==='box').forEach(a=>relatedBoxIds.add(a.destinationId)));
+  const itemKeys=new Set(purchaseMatches.map(p=>p.itemName+'||'+(p.qtyUnit||'')));
+  S.allocations.filter(a=>a.destinationType==='box'&&itemKeys.has(a.itemKey)).forEach(a=>relatedBoxIds.add(a.destinationId));
+  const relatedBoxes=S.boxes.filter(b=>relatedBoxIds.has(b.id));
+  const allBoxIds=new Set([...directBoxes.map(b=>b.id),...relatedBoxes.map(b=>b.id)]);
+  const boxes=S.boxes.filter(b=>allBoxIds.has(b.id));
+  const boxLabel=(b,why='相关海运箱')=>`<div class="list-item"><span><b>${esc(b.code)}</b><br>${statusBadge(b.status)} <span class="muted">${esc(b.seaNo||'无海运号')}</span><br><span class="muted">${why}</span></span><button class="btn small primary" onclick="openBox('${b.id}')">打开海运箱</button></div>`;
+  const purchaseHtml=purchaseMatches.length?`<div class="list">${purchaseMatches.map(x=>{
+    const ids=new Set(S.allocations.filter(a=>a.purchaseId===x.id&&a.destinationType==='box').map(a=>a.destinationId));
+    const bs=S.boxes.filter(b=>ids.has(b.id));
+    return `<div class="card" style="margin-bottom:10px"><div class="list-item"><span><b>${esc(x.itemName)}</b><br><span class="muted">订单号：${esc(x.orderNo||'无订单号')} · 数量：${qtyText(x.qtyValue,x.qtyUnit)}</span></span><b>${fmtMoney(x.priceRmb)}</b></div>${bs.length?`<div style="margin-top:8px"><div class="muted" style="margin-bottom:6px">该采购记录对应的海运箱</div>${bs.map(b=>boxLabel(b,'按 purchaseId 精确关联')).join('')}</div>`:'<div class="muted" style="padding:8px 0">尚未分配到海运箱</div>'}</div>`;
+  }).join('')}</div>`:'<div class="empty">无</div>';
+  const boxHtml=boxes.length?`<div class="list">${boxes.map(b=>boxLabel(b,directBoxes.some(x=>x.id===b.id)?'直接命中箱号/物流信息':'按商品/采购记录关联')).join('')}</div>`:'<div class="empty">无</div>';
+  document.getElementById('searchHint').textContent=`搜索：${q} · 商品/采购与海运箱按采购记录、分配记录精确关联`;
+  document.getElementById('searchResults').innerHTML=`<div class="grid2"><div class="card"><h3>采购记录 (${purchaseMatches.length})</h3>${purchaseHtml}</div><div class="card"><h3>对应海运箱 (${boxes.length})</h3>${boxHtml}</div></div>`;
+  navigate('search');
+}
 function openModal(html){document.getElementById('modal').innerHTML=html;document.getElementById('modalBack').classList.add('open')}
 function closeModal(){document.getElementById('modalBack').classList.remove('open');document.getElementById('modal').innerHTML='';window._activeInspection=null}
 document.getElementById('modalBack').addEventListener('click',e=>{if(e.target.id==='modalBack')closeModal()});
