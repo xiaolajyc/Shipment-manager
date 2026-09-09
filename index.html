@@ -55,6 +55,9 @@ td.wrap{white-space:normal;min-width:240px}
 .badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:700}
 .badge.blue{background:var(--primary2);color:#1759b4}.badge.green{background:var(--greenbg);color:#16714a}
 .badge.amber{background:var(--amberbg);color:#8a5700}.badge.red{background:var(--redbg);color:#ab2929}.badge.gray{background:#eef1f4;color:#5d6975}
+.badge.temp{background:#fff0c2;color:#8a5700}
+.temp-mark{display:inline-flex;align-items:center;justify-content:center;margin-right:5px;font-size:16px;font-weight:800;color:#a96a00}
+.box-batch-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0;padding:10px;background:#fff8e6;border:1px solid #f1d893;border-radius:10px}
 .notice{padding:10px 12px;border-radius:10px;background:#f7f9fb;border:1px solid var(--line);margin-bottom:12px}
 .notice.warn{background:var(--amberbg);border-color:#f1d893}.notice.danger{background:var(--redbg);border-color:#f1b9b9}
 .list{display:flex;flex-direction:column;gap:8px}.list-item{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px dashed var(--line)}
@@ -180,7 +183,7 @@ td.wrap{white-space:normal;min-width:240px}
         <div class="card">
           <div class="toolbar">
       <input id="invSearch" placeholder="搜索商品名 / 订单号">
-      <select id="invStatus"><option value="all">全部状态</option><option value="pending">待分配</option><option value="partial">部分分配</option><option value="allocated">已全部分配</option></select><select id="invSensitivity"><option value="all">全部货物</option><option value="non_sensitive">非敏感货</option><option value="sensitive">敏感货</option></select><select id="invDrug"><option value="all">全部类型</option><option value="drug">💊 全部药品</option><option value="non_drug">非药品</option></select>
+      <select id="invStatus"><option value="all">全部状态</option><option value="pending">待分配</option><option value="partial">部分分配</option><option value="allocated">已全部分配</option></select><select id="invSensitivity"><option value="all">全部货物</option><option value="non_sensitive">非敏感货</option><option value="sensitive">敏感货</option></select><select id="invDrug"><option value="all">全部类型</option><option value="drug">💊 全部药品</option><option value="non_drug">非药品</option></select><select id="invTemp"><option value="all">暂存：全部</option><option value="temp">📦 暂时存放</option><option value="non_temp">非暂存</option></select>
       <button class="btn primary" onclick="openBatchAllocate()">批量分配</button><button class="btn" onclick="openBatchMove()">批量移动</button><button class="btn" onclick="markSelectedAsDrug()">💊 批量标记为药品</button>
       <span class="muted" id="invSelectedCount">已选 0 项</span><span class="muted" id="invSelectedWeight">所选库存重量 0 kg</span>
     </div>
@@ -236,8 +239,8 @@ td.wrap{white-space:normal;min-width:240px}
       <section class="page" id="page-data">
         <div class="page-head"><div><h2>数据管理</h2><div class="muted">所有数据保存在当前浏览器本地 IndexedDB</div></div></div>
         <div class="grid2">
-          <div class="card"><h3>完整备份</h3><p class="muted">适合电脑主端的完整备份与恢复。清除所有数据不可恢复，执行前会要求两次确认。</p><div class="toolbar"><button class="btn primary" id="btnExportFull" onclick="exportFullBackup()">导出完整 JSON</button><button class="btn" id="btnImportFull">导入 JSON（自动识别）</button><button class="btn danger" id="btnClearAll" onclick="window.clearAllData()" >清除所有数据</button><input id="jsonInput" type="file" accept="application/json,.json" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0"></div></div>
-          <div class="card"><h3>手机数据包</h3><p class="muted">电脑 → 手机：先在电脑导出手机数据包，再在手机的“导入 JSON（自动识别）”中选择该文件即可。手机完成到货查验后，再导出“查验结果包”回电脑。</p><div class="toolbar"><button class="btn primary" id="btnExportMobile" onclick="exportMobilePackage()">导出手机数据包</button><button class="btn" id="btnImportMobile">导入手机查验结果</button><button class="btn" id="btnExportInspection" onclick="exportInspectionResults()">导出查验结果</button><input id="mobileResultInput" type="file" accept="application/json,.json" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0"></div></div>
+          <div class="card"><h3>完整备份</h3><p class="muted">适合电脑主端的完整备份与恢复。清除所有数据不可恢复，执行前会要求两次确认。</p><div class="toolbar"><button class="btn primary" id="btnExportFull" onclick="exportFullBackup()">导出完整 JSON</button><button class="btn" id="btnImportFull" onclick="document.getElementById('jsonInput').click()">导入 JSON（自动识别）</button><button class="btn danger" id="btnClearAll" onclick="window.clearAllData()" >清除所有数据</button><input id="jsonInput" type="file" accept=".json" class="hidden"></div></div>
+          <div class="card"><h3>手机数据包</h3><p class="muted">电脑 → 手机：先在电脑导出手机数据包，再在手机的“导入 JSON（自动识别）”中选择该文件即可。手机完成到货查验后，再导出“查验结果包”回电脑。</p><div class="toolbar"><button class="btn primary" id="btnExportMobile" onclick="exportMobilePackage()">导出手机数据包</button><button class="btn" id="btnImportMobile" onclick="document.getElementById('mobileResultInput').click()">导入手机查验结果</button><button class="btn" id="btnExportInspection" onclick="exportInspectionResults()">导出查验结果</button><input id="mobileResultInput" type="file" accept=".json" class="hidden"></div></div>
         </div>
         <div class="card" style="margin-top:16px"><h3>Excel 导出</h3><div class="toolbar"><button class="btn" id="btnExportPurchases" onclick="exportPurchasesCSV()">采购记录 CSV</button><button class="btn" id="btnExportInventory" onclick="exportInventoryCSV()">库存 CSV</button><button class="btn" id="btnExportBoxes" onclick="exportBoxesCSV()">海运箱 CSV</button><button class="btn" id="btnExportInspections" onclick="exportInspectionsCSV()">查验 CSV</button></div></div>
         <div class="card" style="margin-top:16px"><h3>本地数据概况</h3><div class="detail-grid" id="dataSummary"></div></div>
@@ -348,43 +351,21 @@ async function init(){
   try{refresh()}catch(err){console.error('页面刷新错误：',err)}
 }
 function bindEvents(){
-  // JSON import bindings are deliberately installed first and defensively.
-  // This prevents an unrelated UI binding failure from making mobile import appear unresponsive.
-  const jsonInput=document.getElementById('jsonInput');
-  const btnImportFull=document.getElementById('btnImportFull');
-  if(btnImportFull && jsonInput){
-    btnImportFull.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();try{jsonInput.click()}catch(err){alert('无法打开文件选择器：'+err.message)}});
-    jsonInput.addEventListener('change',async e=>{
-      const f=e.target.files && e.target.files[0];
-      if(!f)return;
-      try{await importFullJSON(f)}catch(err){console.error(err);alert('JSON导入失败：'+(err&&err.message?err.message:err));}
-      finally{e.target.value='';}
-    });
-  }
-  const mobileResultInput=document.getElementById('mobileResultInput');
-  const btnImportMobile=document.getElementById('btnImportMobile');
-  if(btnImportMobile && mobileResultInput){
-    btnImportMobile.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();try{mobileResultInput.click()}catch(err){alert('无法打开文件选择器：'+err.message)}});
-    mobileResultInput.addEventListener('change',async e=>{
-      const f=e.target.files && e.target.files[0];
-      if(!f)return;
-      try{await importMobileResults(f)}catch(err){console.error(err);alert('查验结果导入失败：'+(err&&err.message?err.message:err));}
-      finally{e.target.value='';}
-    });
-  }
   document.querySelectorAll('#nav button[data-page]').forEach(b=>b.onclick=()=>navigate(b.dataset.page));
   document.getElementById('globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter')doGlobalSearch(e.target.value)});
   document.getElementById('fileInput').addEventListener('change',e=>handleFile(e.target.files[0]));
   const dz=document.getElementById('dropzone');['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag')}));['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag')}));dz.addEventListener('drop',e=>handleFile(e.dataTransfer.files[0]));
   document.getElementById('ocrInput').addEventListener('change',e=>handleOCR(e.target.files[0]));
-  ['invSearch','invStatus','invSensitivity','invDrug'].forEach(x=>document.getElementById(x).addEventListener('input',renderInventory));
+  document.getElementById('jsonInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importFullJSON(f);e.target.value=''});
+  document.getElementById('mobileResultInput').addEventListener('change',e=>importMobileResults(e.target.files[0]));
+  ['invSearch','invStatus','invSensitivity','invDrug','invTemp'].forEach(x=>document.getElementById(x)?.addEventListener('input',renderInventory));
   ['boxSearch','boxStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderBoxes));
   ['logSearch'].forEach(x=>document.getElementById(x).addEventListener('input',renderLogistics));
   ['inspSearch','inspStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderInspection));
   document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');['excel','paste','ocr','history'].forEach(k=>document.getElementById('itab-'+k).classList.toggle('hidden',t.dataset.itab!==k))});
   const dbind=(idv,fn)=>{const el=document.getElementById(idv);if(el)el.addEventListener('click',e=>{e.preventDefault();try{const r=fn();if(r&&r.catch)r.catch(err=>alert('操作失败：'+err.message))}catch(err){alert('操作失败：'+err.message)}})};
-  dbind('btnExportFull',exportFullBackup); dbind('btnClearAll',clearAllData);
-  dbind('btnExportMobile',exportMobilePackage); dbind('btnExportInspection',exportInspectionResults);
+  dbind('btnExportFull',exportFullBackup); dbind('btnImportFull',()=>document.getElementById('jsonInput').click()); dbind('btnClearAll',clearAllData);
+  dbind('btnExportMobile',exportMobilePackage); dbind('btnImportMobile',()=>document.getElementById('mobileResultInput').click()); dbind('btnExportInspection',exportInspectionResults);
   dbind('btnExportPurchases',exportPurchasesCSV); dbind('btnExportInventory',exportInventoryCSV); dbind('btnExportBoxes',exportBoxesCSV); dbind('btnExportInspections',exportInspectionsCSV);
 }
 function navigate(page){
@@ -509,6 +490,7 @@ function renderInventory(){
   const status=document.getElementById('invStatus')?.value||'all';
   const sensitivity=document.getElementById('invSensitivity')?.value||'all';
   const drugFilter=document.getElementById('invDrug')?.value||'all';
+  const tempFilter=document.getElementById('invTemp')?.value||'all';
   let rows=inventoryGroups().filter(g=>!search||g.itemName.toLowerCase().includes(search)||g.sources.some(p=>(p.orderNo||'').toLowerCase().includes(search)));
   // 药品筛选是独立维度：选择“全部药品”时必须显示所有已标记药品，
   // 包括已经全部分配、已装箱或留存在家中的药品，不能再被库存状态筛选隐藏。
@@ -519,13 +501,14 @@ function renderInventory(){
     rows=rows.filter(g=>drugFilter==='all'||(drugFilter==='non_drug'&&!isDrug(g)));
   }
   rows=rows.filter(g=>sensitivity==='all'||(sensitivity==='non_sensitive'&&itemSensitivity(g)==='非敏感货')||(sensitivity==='sensitive'&&itemSensitivity(g)==='敏感货'));
+  rows=rows.filter(g=>tempFilter==='all'||(tempFilter==='temp'&&isTempStored(g))||(tempFilter==='non_temp'&&!isTempStored(g)));
   const body=document.getElementById('inventoryBody');
   if(!body)return;
   body.innerHTML=rows.length?rows.map(g=>{
     const key=encodeURIComponent(inventoryGroupKey(g));
     return `<tr>
       <td><input class="inv-check" type="checkbox" value="${key}" onchange="updateInventorySelection()"></td>
-      <td><b>${isDrug(g)?'💊 ':''}${esc(g.itemName)}</b> ${isDrug(g)?'<span class="badge green">药品</span>':''}<button class="btn small ${isDrug(g)?'danger':''}" style="margin-left:6px" onclick="event.stopPropagation();${isDrug(g)?`unmarkDrug('${key}')`:`markInventoryItemAsDrug('${key}')`}">${isDrug(g)?'取消标记':'标记为药品'}</button></td>
+      <td><b>${isTempStored(g)?'<span class="temp-mark" title="暂时存放">📦</span>':''}${isDrug(g)?'💊 ':''}${esc(g.itemName)}</b> ${isTempStored(g)?'<span class="badge temp">暂时存放</span>':''} ${isDrug(g)?'<span class="badge green">药品</span>':''}<button class="btn small" style="margin-left:6px" onclick="event.stopPropagation();toggleTemporaryStorage('${key}')">${isTempStored(g)?'取消暂存':'标记暂存'}</button> <button class="btn small ${isDrug(g)?'danger':''}" onclick="event.stopPropagation();${isDrug(g)?`unmarkDrug('${key}')`:`markInventoryItemAsDrug('${key}')`}">${isDrug(g)?'取消标记':'标记为药品'}</button></td>
       <td>${sensitivityBadge(g)} <button class="btn small" onclick="setItemSensitivity('${key}')">${itemSensitivity(g)==='非敏感货'?'改为敏感':'标为非敏感'}</button></td>
       <td><b>${qtyText(g.rawQty,g.unit)}</b></td>
       <td>${fmtNum(g.rawWeightKg)} kg</td>
@@ -567,6 +550,17 @@ function selectedInventoryGroups(){
 }
 function itemMetaFor(g){S.itemMeta=S.itemMeta||{};const key=inventoryGroupKey(g);return S.itemMeta[key]||{}}
 function isDrug(g){return itemMetaFor(g).isDrug===true}
+function isTempStored(g){return itemMetaFor(g).temporaryStorage===true}
+async function toggleTemporaryStorage(keyEncoded){
+  const key=decodeURIComponent(keyEncoded);
+  S.itemMeta=S.itemMeta||{};
+  const old=S.itemMeta[key]||{};
+  const next=!old.temporaryStorage;
+  S.itemMeta[key]={...old,temporaryStorage:next};
+  S.logs.push({id:id('log'),time:now(),type:'temporary',text:`${next?'标记':'取消标记'}暂时存放：${key.split('||')[0]}`});
+  await saveState();refresh();navigate('inventory');
+}
+
 async function markSelectedAsDrug(){
   const keys=selectedInventoryGroups();
   if(!keys.length)return alert('请先在库存列表勾选需要标记的商品');
@@ -854,6 +848,33 @@ async function saveMoveAllocation(aid){
   S.logs.push({id:id('log'),time:now(),type:'move',text:`${a.itemName} ${qtyText(q,a.qtyUnit)}：${source} → ${d==='pending'?'待分配':d==='box'?boxCode(targetId):d==='home'?'家里':other}`});
   await saveState();closeModal();refresh();navigate('inventory');
 }
+
+function toggleAllBoxItems(checked){
+  document.querySelectorAll('.box-item-check').forEach(x=>x.checked=checked);
+}
+async function moveSelectedBoxItemsToPending(bid){
+  const b=S.boxes.find(x=>sameId(x.id,bid));
+  if(!b)return;
+  const ids=[...document.querySelectorAll('.box-item-check:checked')].map(x=>x.value);
+  if(!ids.length)return alert('请先勾选要移回待分配的物品');
+  const selected=S.allocations.filter(a=>ids.some(idv=>sameId(idv,a.id))&&sameId(a.destinationId,b.id)&&a.destinationType==='box');
+  if(!selected.length)return alert('没有找到可移回待分配的物品');
+  const totalText=selected.map(a=>`${a.itemName} ${qtyText(a.plannedQty,a.qtyUnit)}`).join('\\n');
+  if(!confirm(`确定将以下 ${selected.length} 个物品全部移回“待分配”吗？\\n\\n${totalText}\\n\\n此操作会从本箱移除这些分配记录。`))return;
+  if(['已到货','查验完成'].includes(b.status))return alert(`箱子 ${b.code} 已到货/完成查验，不能移动物品`);
+  if(['已封箱','国内运输','国际运输'].includes(b.status)){
+    if(!confirm(`箱子 ${b.code} 当前为“${b.status}”，移出物品后会恢复为“装箱中”。继续吗？`))return;
+    b.status='装箱中';b.sealedAt=null;
+  }
+  S.allocations=S.allocations.filter(a=>!selected.some(x=>sameId(x.id,a.id)));
+  selected.forEach(a=>S.logs.push({id:id('log'),time:now(),type:'move',text:`${a.itemName} ${qtyText(a.plannedQty,a.qtyUnit)}：${b.code} → 待分配`}));
+  await saveState();
+  closeModal();
+  refresh();
+  navigate('inventory');
+  alert(`已将 ${selected.length} 个物品移回待分配`);
+}
+
 function boxLines(b){return S.allocations.filter(a=>a.destinationType==='box'&&a.destinationId===b.id)}
 function groupForAllocation(a){
   const key=a.itemKey||(`${a.itemName||''}||${a.qtyUnit||''}`);
@@ -895,7 +916,8 @@ function openBox(bid){const b=S.boxes.find(x=>x.id===bid);if(!b)return;
   openModal(`<div class="modal-head"><div><h3>${esc(b.code)} ${statusBadge(b.status)}</h3><div class="muted">创建于 ${fmtDate(b.createdAt)} ${b.seaNo?'· 海运号 '+esc(b.seaNo):''}</div></div><button class="btn icon" onclick="closeModal()">×</button></div>
   <div class="detail-grid"><div class="detail"><label>收货人</label><strong>${esc(b.recipient||"—")}</strong></div><div class="detail"><label>寄出 → 收到</label><strong>${transportDurationText(b)}</strong><div class="muted">${esc(b.dispatchDate||"—")} → ${esc(b.arrivedDate||"—")}</div></div><div class="detail"><label>计划商品预计总重量</label><strong>${fmtNum(estimatedBoxGoodsWeight(b))} kg</strong></div><div class="detail"><label>箱体重量</label><strong>${fmtNum(b.tareWeightKg)} kg</strong></div><div class="detail"><label>预计整箱总重</label><strong>${fmtNum(estimatedBoxTotalWeight(b))} kg</strong><div class="muted">商品预计重量 + 箱体重量</div></div><div class="detail"><label>实际整箱重量</label>${b.status==='装箱中'?`<input id="boxActualWeight" type="number" min="0" step="0.01" value="${b.actualTotalWeightKg||''}" style="width:150px;border:1px solid var(--line);border-radius:8px;padding:7px"><div class="muted" style="margin-top:4px">整箱称重后填写</div>`:`<strong>${b.actualTotalWeightKg?fmtNum(b.actualTotalWeightKg)+' kg':'—'}</strong>`}</div><div class="detail"><label>预计到货</label><strong>${esc(b.eta||'—')}</strong></div></div>
   <h4 style="margin-top:16px">装箱清单</h4>
-  <div class="table-wrap"><table><thead><tr><th>物品</th><th>计划数量</th><th>预计商品重量</th><th>实际装入</th><th>差异</th><th>操作</th></tr></thead><tbody>${lines.length?lines.map(a=>{const diff=a.packedQty===null||a.packedQty===undefined||a.packedQty===''?'':(Number(a.packedQty)-Number(a.plannedQty));const actual=b.status==='装箱中'?`<input id="pack_${a.id}" type="number" min="0" max="${a.plannedQty}" step="any" value="${a.packedQty??''}" style="width:110px;border:1px solid var(--line);border-radius:8px;padding:7px"> ${esc(a.qtyUnit||'')}`:(a.packedQty!=null?qtyText(a.packedQty,a.qtyUnit):'—');const ew=allocationPlannedWeight(a);return `<tr><td><b>${esc(a.itemName)}</b></td><td>${qtyText(a.plannedQty,a.qtyUnit)}</td><td>${fmtNum(ew)} kg</td><td>${actual}</td><td>${diff!==''?fmtNum(diff)+' '+(a.qtyUnit||''): '—'}</td><td><button class="btn small" onclick="openMoveAllocation('${a.id}')">移动</button></td></tr>`}).join(''):'<tr><td colspan="6"><div class="empty">暂无分配到此箱的商品</div></td></tr>'}</tbody></table></div>
+  <div class="box-batch-bar"><label><input type="checkbox" id="boxSelectAll" onchange="toggleAllBoxItems(this.checked)"> 全选</label><span class="muted">勾选后可将多个物品一次性移回“待分配”</span><button class="btn danger" onclick="moveSelectedBoxItemsToPending('${b.id}')">↩ 批量移回待分配</button></div>
+  <div class="table-wrap"><table><thead><tr><th>选择</th><th>物品</th><th>计划数量</th><th>预计商品重量</th><th>实际装入</th><th>差异</th><th>操作</th></tr></thead><tbody>${lines.length?lines.map(a=>{const diff=a.packedQty===null||a.packedQty===undefined||a.packedQty===''?'':(Number(a.packedQty)-Number(a.plannedQty));const actual=b.status==='装箱中'?`<input id="pack_${a.id}" type="number" min="0" max="${a.plannedQty}" step="any" value="${a.packedQty??''}" style="width:110px;border:1px solid var(--line);border-radius:8px;padding:7px"> ${esc(a.qtyUnit||'')}`:(a.packedQty!=null?qtyText(a.packedQty,a.qtyUnit):'—');const ew=allocationPlannedWeight(a);return `<tr><td><input class="box-item-check" type="checkbox" value="${a.id}"></td><td><b>${isTempStored(groupForAllocation(a))?'<span class="temp-mark">📦</span>':''}${esc(a.itemName)}</b></td><td>${qtyText(a.plannedQty,a.qtyUnit)}</td><td>${fmtNum(ew)} kg</td><td>${actual}</td><td>${diff!==''?fmtNum(diff)+' '+(a.qtyUnit||''): '—'}</td><td><button class="btn small" onclick="openMoveAllocation('${a.id}')">移动</button></td></tr>`}).join(''):'<tr><td colspan="7"><div class="empty">暂无分配到此箱的商品</div></td></tr>'}</tbody></table></div>
   <div class="notice" style="margin-top:12px">预计商品重量按库存来源的“总重量 ÷ 总数量”估算，再乘以本箱计划数量。实际海运重量仍以整箱称重为准；不要求逐项填写商品实际重量。</div>
   <div class="modal-foot">${actions}<button class="btn" onclick="closeModal()">关闭</button></div>`);
 }
@@ -1037,7 +1059,7 @@ function setInsVal(aid,v){if(!window._activeInspection)return;const it=window._a
 async function attachInspectionPhoto(aid,file){if(!file||!window._activeInspection)return;const it=window._activeInspection.items.find(x=>x.allocationId===aid);if(!it)return;it.photo=await compressImage(file);const btn=document.querySelector(`button[onclick=\"document.getElementById('photo_${aid}').click()\"]`);if(btn)btn.textContent='📷✓'}
 function compressImage(file){return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=()=>{const max=1280,scale=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext('2d').drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',.78))};img.onerror=reject;img.src=fr.result};fr.onerror=reject;fr.readAsDataURL(file)})}
 async function saveInspection(bid){const b=S.boxes.find(x=>x.id===bid),ins=window._activeInspection;if(!ins)return;ins.note=document.getElementById('insNote').value;let complete=true,abnormal=false;ins.items.forEach(it=>{const a=boxLines(b).find(x=>x.id===it.allocationId);const meta=a?inspectionDrugMetaForAllocation(a):{};if(it.actualQty==null||!Number.isFinite(it.actualQty)){complete=false}else if(Math.abs(it.actualQty-it.expectedQty)>1e-9)abnormal=true;if(meta.isDrug===true&&(it.drugCheck!=='match')){complete=false;if(it.drugCheck==='mismatch')abnormal=true;}});if(!complete)return alert('请先完成所有商品数量核对；标记为药品的还必须完成规格核对（选择“规格一致”或“规格不一致”）。');ins.status=abnormal?'异常':'已完成';ins.updatedAt=now();const idx=S.inspections.findIndex(x=>x.id===ins.id);if(idx>=0)S.inspections[idx]=ins;else S.inspections.push(ins);if(!abnormal)b.status='查验完成';S.logs.push({id:id('log'),time:now(),type:'inspection',text:`${b.code} 查验 ${ins.status}`});await saveState();closeModal();refresh();navigate('inspection')}
-function printBox(bid){const b=S.boxes.find(x=>x.id===bid),lines=boxLines(b);const html=`<html><head><title>${b.code}装箱单</title><style>body{font-family:Arial,"Microsoft YaHei";padding:30px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:8px;text-align:left}h1{margin-top:0}</style></head><body><h1>${esc(b.code)} 装箱清单</h1><p>海运号：${esc(b.seaNo||'—')}　收货人：${esc(b.recipient||'—')}　整箱重量：${fmtNum(b.actualTotalWeightKg)} kg</p><p>寄出：${esc(b.dispatchDate||'—')}　收到：${esc(b.arrivedDate||'—')}　运输时长：${transportDurationText(b)}</p><table><tr><th>物品</th><th>数量</th></tr>${lines.map(a=>`<tr><td>${esc(a.itemName)}</td><td>${qtyText(a.packedQty||0,a.qtyUnit)}</td></tr>`).join('')}</table><script>window.print()<\/script></body></html>`;const w=window.open();w.document.write(html);w.document.close()}
+function printBox(bid){const b=S.boxes.find(x=>x.id===bid),lines=boxLines(b);const html=`<html><head><title>${b.code}装箱单</title><style>body{font-family:Arial,"Microsoft YaHei";padding:30px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:8px;text-align:left}h1{margin-top:0}</style></head><body><h1>${esc(b.code)} 装箱清单</h1><p>海运号：${esc(b.seaNo||'—')}　收货人：${esc(b.recipient||'—')}　整箱重量：${fmtNum(b.actualTotalWeightKg)} kg</p><p>寄出：${esc(b.dispatchDate||'—')}　收到：${esc(b.arrivedDate||'—')}　运输时长：${transportDurationText(b)}</p><table><tr><th>物品</th><th>数量</th><th>订单号</th></tr>${lines.map(a=>{const p=S.purchases.find(p=>p.id===a.purchaseId)||{};return `<tr><td>${esc(a.itemName)}</td><td>${qtyText(a.packedQty||0,a.qtyUnit)}</td><td>${esc(p.orderNo||'—')}</td></tr>`}).join('')}</table><script>window.print()<\/script></body></html>`;const w=window.open();w.document.write(html);w.document.close()}
 function renderFinance(){
   const activePurchases=S.purchases.filter(p=>!p.deleted);
   const y=new Date().getFullYear(),m=String(new Date().getMonth()+1).padStart(2,'0');
@@ -1235,8 +1257,7 @@ function exportMobilePackage(){const pack={type:'shipping-mobile-snapshot',versi
 async function importFullJSON(file){
   if(!file)return;
   try{
-    const text=(await file.text()).replace(/^\uFEFF/, '').trim();
-    if(!text)throw new Error('JSON文件为空');
+    const text=await file.text();
     const obj=JSON.parse(text);
     // 支持电脑“完整 JSON”和“手机数据包”两种格式，避免手机端导入后看起来没有数据。
     if(obj&&obj.type==='shipping-mobile-snapshot'&&obj.data){
@@ -1274,7 +1295,7 @@ async function importFullJSON(file){
     alert(`完整数据导入成功：${S.purchases.length} 条采购、${S.boxes.length} 个海运箱。`);
   }catch(e){console.error(e);alert('导入失败：'+(e&&e.message?e.message:e));}
 }
-async function importMobileResults(file){if(!file)return;try{const raw=(await file.text()).replace(/^\uFEFF/, '').trim(); if(!raw)throw new Error('JSON文件为空'); const obj=JSON.parse(raw);if(obj.type!=='shipping-mobile-results')throw new Error('不是手机查验结果包');let added=0;for(const x of obj.inspections||[]){const i=S.inspections.findIndex(i=>i.boxId===x.boxId);if(i>=0)S.inspections[i]=x;else{S.inspections.push(x);added++}const b=S.boxes.find(b=>b.id===x.boxId);if(b&&x.status==='已完成')b.status='查验完成'}await saveState();refresh();alert(`已导入 ${obj.inspections?.length||0} 条查验结果`)}catch(e){alert('导入失败：'+e.message)}}
+async function importMobileResults(file){if(!file)return;try{const obj=JSON.parse(await file.text());if(obj.type!=='shipping-mobile-results')throw new Error('不是手机查验结果包');let added=0;for(const x of obj.inspections||[]){const i=S.inspections.findIndex(i=>i.boxId===x.boxId);if(i>=0)S.inspections[i]=x;else{S.inspections.push(x);added++}const b=S.boxes.find(b=>b.id===x.boxId);if(b&&x.status==='已完成')b.status='查验完成'}await saveState();refresh();alert(`已导入 ${obj.inspections?.length||0} 条查验结果`)}catch(e){alert('导入失败：'+e.message)}}
 function exportInspectionResults(){const pack={type:'shipping-mobile-results',version:1,createdAt:now(),inspections:S.inspections};download(`查验结果_${stamp()}.json`,JSON.stringify(pack),'application/json')}
 function exportPurchasesCSV(){const head=['序号','物品名字','数量','重量kg','商品名称','订单号','价格RMB','单价RMB','录入日期'];const body=S.purchases.filter(p=>!p.deleted).map(p=>[p.seq,p.itemName,qtyText(p.qtyValue,p.qtyUnit),p.weightKg,p.productName,p.orderNo,p.priceRmb,p.unitPrice,p.enteredAt?.slice(0,10)]);download('采购记录.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
 function exportInventoryCSV(){const head=['物品','原始数量','已分配','待分配','留存家里','海运中','采购金额'];const body=inventoryGroups().map(g=>[g.itemName,g.rawQty,g.allocated,g.remaining,g.home,g.packedBox,g.spend]);download('库存.csv',[head,...body].map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv;charset=utf-8')}
@@ -1307,7 +1328,7 @@ function closeModal(){document.getElementById('modalBack').classList.remove('ope
 document.getElementById('modalBack').addEventListener('click',e=>{if(e.target.id==='modalBack')closeModal()});
 init();
 window.navigate=navigate;window.openEditPurchase=openEditPurchase;window.saveEditPurchase=saveEditPurchase;window.saveMoveAllocation=saveMoveAllocation;window.saveBatchMove=saveBatchMove;
-window.exportFullBackup=exportFullBackup;window.exportMobilePackage=exportMobilePackage;window.importFullJSON=importFullJSON;window.importMobileResults=importMobileResults;window.exportInspectionResults=exportInspectionResults;window.exportPurchasesCSV=exportPurchasesCSV;window.exportInventoryCSV=exportInventoryCSV;window.exportBoxesCSV=exportBoxesCSV;window.exportInspectionsCSV=exportInspectionsCSV;
+window.exportFullBackup=exportFullBackup;window.exportMobilePackage=exportMobilePackage;window.exportInspectionResults=exportInspectionResults;window.exportPurchasesCSV=exportPurchasesCSV;window.exportInventoryCSV=exportInventoryCSV;window.exportBoxesCSV=exportBoxesCSV;window.exportInspectionsCSV=exportInspectionsCSV;
 </script>
 <script>window.setItemSensitivity=setItemSensitivity;window.estimatedBoxTotalWeight=estimatedBoxTotalWeight;</script>
 <script>window.deleteInventoryItem=deleteInventoryItem;</script>
