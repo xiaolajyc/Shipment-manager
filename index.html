@@ -696,16 +696,27 @@ function openBatchAllocate(){
   const boxes=S.boxes.filter(b=>['待装箱','装箱中'].includes(b.status));
   openModal(`<div class="modal-head"><div><h3>批量分配</h3><div class="muted">共 ${groups.length} 个商品；批量分配到同一个去向。每个商品的数量默认取全部剩余库存，也可逐项修改。</div></div><button class="btn icon" onclick="closeModal()">×</button></div>
   <div class="toolbar"><button class="btn small" onclick="setBatchAllToRemaining()">全部填入剩余</button><button class="btn small" onclick="setBatchAllZero()">全部清零</button></div>
-  <div class="table-wrap"><table><thead><tr><th>商品</th><th>单位</th><th>待处理</th><th>本次分配</th></tr></thead><tbody>${groups.map((g,i)=>`<tr><td><b>${esc(g.itemName)}</b></td><td>${esc(g.unit||'')}</td><td>${qtyText(g.remaining,g.unit)}</td><td><input class="batch-qty" data-key="${esc(inventoryGroupKey(g))}" data-max="${g.remaining}" data-unit="${esc(g.unit)}" type="number" min="0" max="${g.remaining}" step="any" value="${g.remaining}" style="width:120px"></td></tr>`).join('')}</tbody></table></div>
+  <div class="table-wrap"><table><thead><tr><th>商品</th><th>单位</th><th>待处理</th><th>本次分配</th><th>重量/单位</th><th>本次总重</th></tr></thead><tbody>${groups.map((g,i)=>{const unitWeight=g.rawQty>0?(Number(g.weightKg)||0)/Number(g.rawQty):0;return `<tr><td><b>${esc(g.itemName)}</b></td><td>${esc(g.unit||'')}</td><td>${qtyText(g.remaining,g.unit)}</td><td><input class="batch-qty" data-key="${esc(inventoryGroupKey(g))}" data-max="${g.remaining}" data-unit="${esc(g.unit)}" data-unit-weight="${unitWeight}" type="number" min="0" max="${g.remaining}" step="any" value="${g.remaining}" style="width:120px"></td><td>${fmtNum(unitWeight)} kg</td><td class="batch-total-weight" data-for="${esc(inventoryGroupKey(g))}">${fmtNum(unitWeight*g.remaining)} kg</td></tr>`}).join('')}</tbody></table></div>
+  <div class="notice" id="batchWeightSummary" style="margin-top:10px">本次分配总重量：${fmtNum(groups.reduce((t,g)=>{const uw=g.rawQty>0?(Number(g.weightKg)||0)/Number(g.rawQty):0;return t+uw*g.remaining},0))} kg</div>
   <div class="form-grid" style="margin-top:12px"><div class="field full"><label>统一去向</label><select id="batchDest" onchange="toggleBatchDest()"><option value="box">海运箱</option><option value="home">家里留存</option><option value="other">其他</option></select></div>
   <div class="field full" id="batchBoxField"><label>海运箱</label><select id="batchBox">${boxes.length?boxes.map(b=>`<option value="${b.id}">${esc(b.code)} · ${esc(b.status)}</option>`).join(''):'<option value="">暂无可用海运箱</option>'}</select></div>
   <div class="field full hidden" id="batchOtherField"><label>其他去向</label><input id="batchOther" placeholder="例如：送人"></div></div>
-  <div class="notice">批量操作不会把数量直接写进单一采购记录。保存时，系统会把每个商品的本次数量按采购来源顺序分摊，并强制校验每笔采购不得超出原始数量。</div>
+  <div class="notice">重量按各商品原始总重量 ÷ 原始数量计算单位重量，再乘以本次分配数量。批量操作不会把数量直接写进单一采购记录；保存时系统会按采购来源顺序分摊。</div>
   <div class="modal-foot"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveBatchAllocation()">批量确认分配</button></div>`);
+  bindBatchWeightInputs();
 }
-function setBatchAllToRemaining(){document.querySelectorAll('.batch-qty').forEach(x=>x.value=x.dataset.max)}
-function setBatchAllZero(){document.querySelectorAll('.batch-qty').forEach(x=>x.value=0)}
+function updateBatchWeightSummary(){
+  let total=0;
+  document.querySelectorAll('.batch-qty').forEach(x=>{
+    const q=num(x.value)||0,uw=num(x.dataset.unitWeight)||0,totalWeight=q*uw;total+=totalWeight;
+    const cell=document.querySelector(`.batch-total-weight[data-for="${CSS.escape(x.dataset.key)}"]`);if(cell)cell.textContent=`${fmtNum(totalWeight)} kg`;
+  });
+  const el=document.getElementById('batchWeightSummary');if(el)el.textContent=`本次分配总重量：${fmtNum(total)} kg`;
+}
+function setBatchAllToRemaining(){document.querySelectorAll('.batch-qty').forEach(x=>x.value=x.dataset.max);updateBatchWeightSummary()}
+function setBatchAllZero(){document.querySelectorAll('.batch-qty').forEach(x=>x.value=0);updateBatchWeightSummary()}
 function toggleBatchDest(){const d=document.getElementById('batchDest').value;document.getElementById('batchBoxField').classList.toggle('hidden',d!=='box');document.getElementById('batchOtherField').classList.toggle('hidden',d!=='other')}
+function bindBatchWeightInputs(){document.querySelectorAll('.batch-qty').forEach(x=>x.addEventListener('input',updateBatchWeightSummary));updateBatchWeightSummary()}
 async function saveBatchAllocation(){
   const d=document.getElementById('batchDest').value;
   if(d==='box'&&!document.getElementById('batchBox').value)return alert('请选择海运箱');
