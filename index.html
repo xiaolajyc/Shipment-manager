@@ -1054,7 +1054,7 @@ function renderLogistics(){
   document.getElementById('logDurationAvg').textContent=stats.avg==null?'—':`${fmtNum(stats.avg)} 天`;
   document.getElementById('logDurationMedian').textContent=stats.median==null?'—':`${fmtNum(stats.median)} 天`;
   document.getElementById('logDurationRange').textContent=stats.min==null?'—':`${fmtNum(stats.min)} / ${fmtNum(stats.max)} 天`;
-  document.getElementById('logBody').innerHTML=rows.length?rows.map(b=>`<tr><td><b>${esc(b.code)}</b></td><td>${statusBadge(b.status)}</td><td>${esc(b.recipient||'—')}</td><td>${esc(b.domesticCarrier||'—')}</td><td>${esc(b.domesticTrackingNo||'—')}</td><td>${esc(b.internationalCarrier||'—')}</td><td>${esc(b.internationalTrackingNo||'—')}</td><td>${esc(b.seaNo||'—')}</td><td>${esc(b.dispatchDate||'—')}</td><td>${esc(b.arrivedDate||'—')}</td><td><b>${transportDurationText(b)}</b></td><td><button class="btn small" onclick="openLogistics('${b.id}')">编辑</button></td></tr>`).join(''):`<tr><td colspan="12"><div class="empty">暂无物流数据</div></td></tr>`;
+  document.getElementById('logBody').innerHTML=rows.length?rows.map(b=>`<tr><td><b>${boxCodeDisplay(b)}</b></td><td>${statusBadge(b.status)}</td><td>${esc(b.recipient||'—')}</td><td>${esc(b.domesticCarrier||'—')}</td><td>${esc(b.domesticTrackingNo||'—')}</td><td>${esc(b.internationalCarrier||'—')}</td><td>${esc(b.internationalTrackingNo||'—')}</td><td>${esc(b.seaNo||'—')}</td><td>${esc(b.dispatchDate||'—')}</td><td>${esc(b.arrivedDate||'—')}</td><td><b>${transportDurationText(b)}</b></td><td><button class="btn small" onclick="openLogistics('${b.id}')">编辑</button></td></tr>`).join(''):`<tr><td colspan="12"><div class="empty">暂无物流数据</div></td></tr>`;
 }
 
 function inspectionFor(bid){return S.inspections.find(x=>x.boxId===bid)}
