@@ -867,6 +867,7 @@ async function saveMoveAllocation(aid){
 function toggleAllBoxItems(checked){
   document.querySelectorAll('.box-item-check').forEach(x=>x.checked=checked);
 }
+function toggleBoxGroupChecks(el){const ids=(el.dataset.groupIds||'').split(',').filter(Boolean);document.querySelectorAll('.box-item-check').forEach(x=>{if(ids.includes(x.value))x.checked=el.checked})}
 async function moveSelectedBoxItemsToPending(bid){
   const b=S.boxes.find(x=>sameId(x.id,bid));
   if(!b)return;
@@ -925,8 +926,10 @@ function renderBoxes(){
   const rows=S.boxes.filter(b=>(st==='all'||b.status===st)&&(!q||[b.code,b.seaNo,b.domesticTrackingNo,b.internationalTrackingNo].join(' ').toLowerCase().includes(q))).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
   document.getElementById('boxesBody').innerHTML=rows.length?rows.map(b=>`<tr><td>${boxCodeDisplay(b)}</td><td>${statusBadge(b.status)}</td><td>${boxLines(b).length}</td><td>${fmtNum(plannedBoxGoodsWeight(b))} kg</td><td><b>${fmtMoney(boxGoodsValue(b))}</b></td><td>${fmtNum(b.tareWeightKg)} kg</td><td><b>${fmtNum(estimatedBoxTotalWeight(b))} kg</b></td><td>${b.actualTotalWeightKg?fmtNum(b.actualTotalWeightKg)+' kg':'—'}</td><td>${esc(b.seaNo||'—')}</td><td>${esc(b.recipient||'—')}</td><td>${logisticsIssueBadge(b)}</td><td>${esc(b.eta||'—')}</td><td>${transportDurationText(b)}</td><td><button class="btn small primary" onclick="openBox('${b.id}')">打开</button></td></tr>`).join(''):`<tr><td colspan="15"><div class="empty">暂无海运箱</div></td></tr>`;
 }
+function boxDisplayGroups(b){const map=new Map();boxLines(b).forEach(a=>{const key=(a.itemKey||a.itemName||'')+'||'+(a.qtyUnit||'');if(!map.has(key))map.set(key,{itemName:a.itemName,qtyUnit:a.qtyUnit||'',allocations:[],plannedQty:0,packedQty:0});const g=map.get(key);g.allocations.push(a);g.plannedQty+=Number(a.plannedQty)||0;g.packedQty+=(a.packedQty==null?0:Number(a.packedQty)||0)});return [...map.values()]}
+function applyGroupedPackedQty(g,total){let left=Math.max(0,Number(total)||0);g.allocations.forEach(a=>{const take=Math.min(Number(a.plannedQty)||0,left);a.packedQty=take;left-=take});return left}
 function openBox(bid){const b=S.boxes.find(x=>x.id===bid);if(!b)return;
-  const lines=boxLines(b);
+  const lines=boxLines(b),displayGroups=boxDisplayGroups(b);
   const actions=b.status==='待装箱'?`<button class="btn primary" onclick="startPacking('${b.id}')">开始装箱</button>`:
     b.status==='装箱中'?`<button class="btn primary" onclick="savePacking('${b.id}')">保存装箱</button><button class="btn success" onclick="sealBox('${b.id}')">核查并封箱</button>`:
     `<button class="btn" onclick="openLogistics('${b.id}')">编辑物流</button><button class="btn" onclick="printBox('${b.id}')">打印装箱单</button><button class="btn danger" onclick="reopenBox('${b.id}')">重新开箱</button>`;
@@ -934,32 +937,18 @@ function openBox(bid){const b=S.boxes.find(x=>x.id===bid);if(!b)return;
   <div class="detail-grid"><div class="detail"><label>收货人</label><strong>${esc(b.recipient||"—")}</strong></div><div class="detail"><label>寄出 → 收到</label><strong>${transportDurationText(b)}</strong><div class="muted">${esc(b.dispatchDate||"—")} → ${esc(b.arrivedDate||"—")}</div></div><div class="detail"><label>计划商品预计总重量</label><strong>${fmtNum(estimatedBoxGoodsWeight(b))} kg</strong></div><div class="detail"><label>本箱货值</label><strong>${fmtMoney(boxGoodsValue(b))}</strong><div class="muted">按本箱分配数量 × 采购单价计算</div></div><div class="detail"><label>箱体重量</label><strong>${fmtNum(b.tareWeightKg)} kg</strong></div><div class="detail"><label>预计整箱总重</label><strong>${fmtNum(estimatedBoxTotalWeight(b))} kg</strong><div class="muted">商品预计重量 + 箱体重量</div></div><div class="detail"><label>实际整箱重量</label>${b.status==='装箱中'?`<input id="boxActualWeight" type="number" min="0" step="0.01" value="${b.actualTotalWeightKg||''}" style="width:150px;border:1px solid var(--line);border-radius:8px;padding:7px"><div class="muted" style="margin-top:4px">整箱称重后填写</div>`:`<strong>${b.actualTotalWeightKg?fmtNum(b.actualTotalWeightKg)+' kg':'—'}</strong>`}</div><div class="detail"><label>预计到货</label><strong>${esc(b.eta||'—')}</strong></div></div>
   <h4 style="margin-top:16px">装箱清单</h4>
   <div class="box-batch-bar"><label><input type="checkbox" id="boxSelectAll" onchange="toggleAllBoxItems(this.checked)"> 全选</label><span class="muted">勾选后可将多个物品一次性移回“待分配”</span><button class="btn danger" onclick="moveSelectedBoxItemsToPending('${b.id}')">↩ 批量移回待分配</button></div>
-  <div class="table-wrap"><table><thead><tr><th>选择</th><th>物品</th><th>计划数量</th><th>预计商品重量</th><th>实际装入</th><th>差异</th><th>操作</th></tr></thead><tbody>${lines.length?lines.map(a=>{const diff=a.packedQty===null||a.packedQty===undefined||a.packedQty===''?'':(Number(a.packedQty)-Number(a.plannedQty));const actual=b.status==='装箱中'?`<input id="pack_${a.id}" type="number" min="0" max="${a.plannedQty}" step="any" value="${a.packedQty??''}" style="width:110px;border:1px solid var(--line);border-radius:8px;padding:7px"> ${esc(a.qtyUnit||'')}`:(a.packedQty!=null?qtyText(a.packedQty,a.qtyUnit):'—');const ew=allocationPlannedWeight(a);return `<tr><td><input class="box-item-check" type="checkbox" value="${a.id}"></td><td><b>${isTempStored(groupForAllocation(a))?'<span class="temp-mark">📦</span>':''}${isDrug(groupForAllocation(a))?'💊 ':''}${esc(a.itemName)}</b> ${isDrug(groupForAllocation(a))?'<span class="badge green">药品</span>':''}</td><td>${qtyText(a.plannedQty,a.qtyUnit)}</td><td>${fmtNum(ew)} kg</td><td>${actual}</td><td>${diff!==''?fmtNum(diff)+' '+(a.qtyUnit||''): '—'}</td><td><button class="btn small" onclick="openMoveAllocation('${a.id}')">移动</button></td></tr>`}).join(''):'<tr><td colspan="7"><div class="empty">暂无分配到此箱的商品</div></td></tr>'}</tbody></table></div>
+  <div class="table-wrap"><table><thead><tr><th>选择</th><th>物品</th><th>计划数量</th><th>预计商品重量</th><th>实际装入</th><th>差异</th><th>操作</th></tr></thead><tbody>${displayGroups.length?displayGroups.map((g,i)=>{const ids=g.allocations.map(a=>a.id);const gg=groupForAllocation(g.allocations[0]);const hasPacked=g.allocations.some(a=>a.packedQty!=null);const diff=hasPacked?g.packedQty-g.plannedQty:'';const actual=b.status==='装箱中'?`<input id="packgrp_${i}" type="number" min="0" max="${g.plannedQty}" step="any" value="${hasPacked?g.packedQty:''}" style="width:110px;border:1px solid var(--line);border-radius:8px;padding:7px"> ${esc(g.qtyUnit)}`:(hasPacked?qtyText(g.packedQty,g.qtyUnit):'—');const ew=sum(g.allocations,allocationPlannedWeight);return `<tr><td><input class="box-item-check" type="checkbox" value="${ids[0]}" data-group-ids="${ids.join(',')}" onchange="toggleBoxGroupChecks(this)"></td><td><b>${isTempStored(gg)?'<span class="temp-mark">📦</span>':''}${isDrug(gg)?'💊 ':''}${esc(g.itemName)}</b> ${isDrug(gg)?'<span class="badge green">药品</span>':''}</td><td>${qtyText(g.plannedQty,g.qtyUnit)}</td><td>${fmtNum(ew)} kg</td><td>${actual}</td><td>${diff!==''?fmtNum(diff)+' '+esc(g.qtyUnit):'—'}</td><td>${g.allocations.length===1?`<button class="btn small" onclick="openMoveAllocation('${ids[0]}')">移动</button>`:'<span class="muted">已合并</span>'}</td></tr>`}).join(''):'<tr><td colspan="7"><div class="empty">暂无分配到此箱的商品</div></td></tr>'}</tbody></table></div>
   <div class="notice" style="margin-top:12px">预计商品重量按库存来源的“总重量 ÷ 总数量”估算，再乘以本箱计划数量。实际海运重量仍以整箱称重为准；不要求逐项填写商品实际重量。</div>
   <div class="modal-foot">${actions}<button class="btn" onclick="closeModal()">关闭</button></div>`);
 }
 async function startPacking(bid){const b=S.boxes.find(x=>x.id===bid);b.status='装箱中';b.boxStartedAt=now();boxLines(b).forEach(a=>{if(a.packedQty===undefined||a.packedQty===0)a.packedQty=null});await saveState();closeModal();openBox(bid);renderBoxes()}
-async function savePacking(bid){
-  const b=S.boxes.find(x=>x.id===bid);const rows=boxLines(b);let bad=false;
-  rows.forEach(a=>{const el=document.getElementById('pack_'+a.id);if(el){const v=num(el.value);if(Number.isFinite(v)&&v>=0&&v<=a.plannedQty)a.packedQty=v;else bad=true}});
-  if(bad)return alert('请检查实际装入数量；必须在 0 到计划数量之间');
-  const wt=num(document.getElementById('boxActualWeight')?.value);if(Number.isFinite(wt)&&wt>=0)b.actualTotalWeightKg=wt;
-  await saveState();closeModal();openBox(bid);renderBoxes();
-}
+async function savePacking(bid){const b=S.boxes.find(x=>x.id===bid),groups=boxDisplayGroups(b);let bad=false;groups.forEach((g,i)=>{const el=document.getElementById('packgrp_'+i);if(el){const v=num(el.value);if(Number.isFinite(v)&&v>=0&&v<=g.plannedQty)applyGroupedPackedQty(g,v);else bad=true}});if(bad)return alert('请检查实际装入数量；必须在 0 到计划数量之间');const wt=num(document.getElementById('boxActualWeight')?.value);if(Number.isFinite(wt)&&wt>=0)b.actualTotalWeightKg=wt;await saveState();closeModal();openBox(bid);renderBoxes()}
+
 function editPackingUI(bid){ /* kept for extension */ }
 async function sealBox(bid){
   const b=S.boxes.find(x=>x.id===bid),lines=boxLines(b);
-  for(const a of lines){
-    const el=document.getElementById('pack_'+a.id);
-    if(el){
-      const v=num(el.value);
-      if(!Number.isFinite(v)||v<0||v>a.plannedQty)return alert(`请检查 ${a.itemName} 的实际装入数量`);
-      a.packedQty=v;
-    }else if(a.packedQty==null){
-      const inp=prompt(`实际装入数量：${a.itemName}\n计划 ${qtyText(a.plannedQty,a.qtyUnit)}`,a.plannedQty);
-      const v=num(inp);if(!Number.isFinite(v)||v<0||v>a.plannedQty)return alert('实际数量必须在 0 到计划数量之间');a.packedQty=v;
-    }
-  }
+  const groups=boxDisplayGroups(b);
+  for(let i=0;i<groups.length;i++){const g=groups[i],el=document.getElementById('packgrp_'+i);if(el){const v=num(el.value);if(!Number.isFinite(v)||v<0||v>g.plannedQty)return alert(`请检查 ${g.itemName} 的实际装入数量`);applyGroupedPackedQty(g,v)}else if(g.allocations.every(a=>a.packedQty==null)){const inp=prompt(`实际装入数量：${g.itemName}\n计划 ${qtyText(g.plannedQty,g.qtyUnit)}`,g.plannedQty);const v=num(inp);if(!Number.isFinite(v)||v<0||v>g.plannedQty)return alert('实际数量必须在 0 到计划数量之间');applyGroupedPackedQty(g,v)}}
   const inlineWt=document.getElementById('boxActualWeight');
   let actual=inlineWt?num(inlineWt.value):NaN;
   if(!Number.isFinite(actual))actual=parseFloat(prompt('请输入实际整箱重量（kg）',b.actualTotalWeightKg||''));
