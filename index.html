@@ -205,7 +205,7 @@ td.wrap{white-space:normal;min-width:240px}
 
       <section class="page" id="page-logistics">
         <div class="page-head"><div><h2>物流追踪</h2><div class="muted">支持按箱号、国内单号、国际单号、海运号搜索</div></div></div>
-        <div class="cards" style="margin-bottom:16px"><div class="card kpi"><div class="label">物流异常</div><div class="value" id="logIssueCount">0</div><div class="sub">异常 / 丢失 / 没收</div></div><div class="card kpi"><div class="label">箱子丢失</div><div class="value" id="logLostCount">0</div><div class="sub">标记为丢失</div></div><div class="card kpi"><div class="label">箱子没收</div><div class="value" id="logSeizedCount">0</div><div class="sub">标记为没收</div></div><div class="card kpi"><div class="label">已完成运输</div><div class="value" id="logDurationCount">0</div><div class="sub">有寄出和实际到货日期</div></div><div class="card kpi"><div class="label">平均运输时长</div><div class="value" id="logDurationAvg">—</div><div class="sub">寄出 → 实际收到</div></div><div class="card kpi"><div class="label">中位运输时长</div><div class="value" id="logDurationMedian">—</div><div class="sub">寄出 → 实际收到</div></div><div class="card kpi"><div class="label">最长 / 最短</div><div class="value" id="logDurationRange">—</div><div class="sub">已完成运输记录</div></div></div><div class="card"><div class="toolbar"><input id="logSearch" placeholder="搜索物流信息 / 收货人"></div><div class="table-wrap"><table><thead><tr><th>箱号</th><th>状态</th><th>收货人</th><th>国内物流</th><th>国内单号</th><th>国际物流</th><th>国际单号</th><th>海运号</th><th>寄出日期</th><th>实际到货</th><th>运输时长</th><th>操作</th></tr></thead><tbody id="logBody"></tbody></table></div></div>
+        <div class="cards" style="margin-bottom:16px"><div class="card kpi"><div class="label">物流异常</div><div class="value" id="logIssueCount">0</div><div class="sub">异常 / 丢失 / 没收</div></div><div class="card kpi"><div class="label">箱子丢失</div><div class="value" id="logLostCount">0</div><div class="sub">标记为丢失</div></div><div class="card kpi"><div class="label">箱子没收</div><div class="value" id="logSeizedCount">0</div><div class="sub">标记为没收</div></div><div class="card kpi"><div class="label">已完成运输</div><div class="value" id="logDurationCount">0</div><div class="sub">有寄出和实际到货日期</div></div><div class="card kpi"><div class="label">平均运输时长</div><div class="value" id="logDurationAvg">—</div><div class="sub">寄出 → 实际收到</div></div><div class="card kpi"><div class="label">中位运输时长</div><div class="value" id="logDurationMedian">—</div><div class="sub">寄出 → 实际收到</div></div><div class="card kpi"><div class="label">最长 / 最短</div><div class="value" id="logDurationRange">—</div><div class="sub">已完成运输记录</div></div></div><div class="card"><div class="toolbar"><input id="logSearch" placeholder="搜索物流信息 / 收货人"></div><div class="table-wrap"><table><thead><tr><th>箱号</th><th>状态</th><th>收货人</th><th>国内物流</th><th>国内单号</th><th>国际物流</th><th>国际单号</th><th>海运号</th><th>寄出日期</th><th>实际到货</th><th>运输时长</th><th>操作</th></tr></thead><tbody id="logBody"></tbody></table></div></div><div class="card" style="margin-top:16px"><div class="page-head" style="margin-bottom:12px"><div><h3 style="margin:0">海运话术</h3><div class="muted">保存常用海运沟通话术，需要时一键复制</div></div><button class="btn primary" type="button" onclick="addShippingPhrase()">＋ 新增话术</button></div><div id="shippingPhrases"></div></div>
       </section>
 
       <section class="page" id="page-inspection">
@@ -285,7 +285,8 @@ const defaultState=()=>({
   inspections:[],
   meds:[],
   importHistory:[],
-  logs:[]
+  logs:[],
+  shippingPhrases:[]
 });
 let S=defaultState(), importRows=[], ocrRows=[];
 
@@ -1046,6 +1047,50 @@ function openLogistics(bid){
   if(btn)btn.addEventListener('click',()=>saveLogistics(bid));
 }
 
+function renderShippingPhrases(){
+  const el=document.getElementById('shippingPhrases'); if(!el)return;
+  const arr=Array.isArray(S.shippingPhrases)?S.shippingPhrases:[];
+  if(!arr.length){el.innerHTML='<div class="empty">暂无话术，点击“新增话术”添加。</div>';return;}
+  el.innerHTML=arr.map((x,i)=>`<div class="card" style="margin-bottom:10px;padding:12px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><b>${esc(x.title||'未命名话术')}</b><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small primary" type="button" onclick="copyShippingPhrase('${x.id}')">复制</button><button class="btn small" type="button" onclick="editShippingPhrase('${x.id}')">编辑</button><button class="btn small" type="button" onclick="deleteShippingPhrase('${x.id}')">删除</button></div></div><div class="muted" style="white-space:pre-wrap;margin-top:8px;line-height:1.6">${esc(x.text||'')}</div></div>`).join('');
+}
+function addShippingPhrase(){
+  openModal(`<div class="modal-head"><div><h3>新增海运话术</h3><div class="muted">保存后可随时编辑或一键复制</div></div><button class="btn icon" type="button" onclick="closeModal()">×</button></div>
+  <div class="form-grid">
+    <div class="field full"><label>话术名称</label><input id="phraseTitleInput" placeholder="例如：催物流 / 查询海运进度"></div>
+    <div class="field full"><label>话术内容</label><textarea id="phraseTextInput" rows="8" placeholder="输入需要发送的海运沟通话术"></textarea></div>
+  </div>
+  <div class="modal-foot"><button class="btn" type="button" onclick="closeModal()">取消</button><button class="btn primary" type="button" id="savePhraseBtn">保存话术</button></div>`);
+  const btn=document.getElementById('savePhraseBtn');
+  if(btn)btn.addEventListener('click',saveNewShippingPhrase);
+}
+async function saveNewShippingPhrase(){
+  const title=String(document.getElementById('phraseTitleInput')?.value||'').trim();
+  const text=String(document.getElementById('phraseTextInput')?.value||'');
+  if(!title&&!text.trim())return alert('话术名称和内容不能都为空。');
+  if(!Array.isArray(S.shippingPhrases))S.shippingPhrases=[];
+  S.shippingPhrases.push({id:id('phrase'),title:title||'未命名话术',text});
+  try{await saveState();closeModal();renderShippingPhrases();}catch(e){alert('保存失败：'+e.message);}
+}
+function editShippingPhrase(pid){
+  const x=(S.shippingPhrases||[]).find(v=>sameId(v.id,pid)); if(!x)return;
+  const title=prompt('修改话术名称：',x.title||''); if(title===null)return;
+  const text=prompt('修改话术内容：',x.text||''); if(text===null)return;
+  x.title=String(title).trim()||'未命名话术'; x.text=String(text);
+  saveState().then(()=>renderShippingPhrases()).catch(e=>alert('保存失败：'+e.message));
+}
+async function copyShippingPhrase(pid){
+  const x=(S.shippingPhrases||[]).find(v=>sameId(v.id,pid)); if(!x)return;
+  const text=String(x.text||'');
+  try{await navigator.clipboard.writeText(text);alert('已复制话术。');}
+  catch(e){const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');alert('已复制话术。');}catch(err){alert('复制失败，请手动复制。')}ta.remove();}
+}
+function deleteShippingPhrase(pid){
+  const x=(S.shippingPhrases||[]).find(v=>sameId(v.id,pid)); if(!x)return;
+  if(!confirm(`确定删除“${x.title||'未命名话术'}”吗？`))return;
+  S.shippingPhrases=S.shippingPhrases.filter(v=>!sameId(v.id,pid));
+  saveState().then(()=>renderShippingPhrases()).catch(e=>alert('保存失败：'+e.message));
+}
+
 function renderLogistics(){
   const q=document.getElementById('logSearch').value.toLowerCase();
   const rows=S.boxes.filter(b=>!q||[b.code,b.seaNo,b.domesticTrackingNo,b.internationalTrackingNo,b.domesticCarrier,b.internationalCarrier,b.recipient,b.logisticsIssueNote,b.logisticsIssueStatus].join(' ').toLowerCase().includes(q));
@@ -1055,6 +1100,7 @@ function renderLogistics(){
   document.getElementById('logDurationMedian').textContent=stats.median==null?'—':`${fmtNum(stats.median)} 天`;
   document.getElementById('logDurationRange').textContent=stats.min==null?'—':`${fmtNum(stats.min)} / ${fmtNum(stats.max)} 天`;
   document.getElementById('logBody').innerHTML=rows.length?rows.map(b=>`<tr><td><b>${boxCodeDisplay(b)}</b></td><td>${statusBadge(b.status)}</td><td>${esc(b.recipient||'—')}</td><td>${esc(b.domesticCarrier||'—')}</td><td>${esc(b.domesticTrackingNo||'—')}</td><td>${esc(b.internationalCarrier||'—')}</td><td>${esc(b.internationalTrackingNo||'—')}</td><td>${esc(b.seaNo||'—')}</td><td>${esc(b.dispatchDate||'—')}</td><td>${esc(b.arrivedDate||'—')}</td><td><b>${transportDurationText(b)}</b></td><td><button class="btn small" onclick="openLogistics('${b.id}')">编辑</button></td></tr>`).join(''):`<tr><td colspan="12"><div class="empty">暂无物流数据</div></td></tr>`;
+  renderShippingPhrases();
 }
 
 function inspectionFor(bid){return S.inspections.find(x=>x.boxId===bid)}
@@ -1346,7 +1392,7 @@ function openModal(html){document.getElementById('modal').innerHTML=html;documen
 function closeModal(){document.getElementById('modalBack').classList.remove('open');document.getElementById('modal').innerHTML='';window._activeInspection=null}
 document.getElementById('modalBack').addEventListener('click',e=>{if(e.target.id==='modalBack')closeModal()});
 init();
-window.navigate=navigate;window.openEditPurchase=openEditPurchase;window.saveEditPurchase=saveEditPurchase;window.saveMoveAllocation=saveMoveAllocation;window.saveBatchMove=saveBatchMove;
+window.addShippingPhrase=addShippingPhrase;window.editShippingPhrase=editShippingPhrase;window.deleteShippingPhrase=deleteShippingPhrase;window.copyShippingPhrase=copyShippingPhrase;window.navigate=navigate;window.openEditPurchase=openEditPurchase;window.saveEditPurchase=saveEditPurchase;window.saveMoveAllocation=saveMoveAllocation;window.saveBatchMove=saveBatchMove;
 window.exportFullBackup=exportFullBackup;window.exportMobilePackage=exportMobilePackage;window.exportInspectionResults=exportInspectionResults;window.exportPurchasesCSV=exportPurchasesCSV;window.exportInventoryCSV=exportInventoryCSV;window.exportBoxesCSV=exportBoxesCSV;window.exportInspectionsCSV=exportInspectionsCSV;
 </script>
 <script>window.setItemSensitivity=setItemSensitivity;window.estimatedBoxTotalWeight=estimatedBoxTotalWeight;</script>
