@@ -1,7 +1,4 @@
-海运管理 PWA（龙开船送箱子图标版）
+海运管理 PWA v6
 
-Flat 结构：所有部署文件位于根目录。
-
-部署：将整个文件夹内容上传到 GitHub Pages 的站点根目录即可。
-
-注意：这是本地数据应用，数据保存在浏览器本地 IndexedDB/localStorage，不使用云端数据库。
+本版本重点修复 iPhone/PWA 旧 Service Worker 缓存导致的导入按钮事件异常。
+请将全部文件覆盖到 GitHub Pages 根目录。首次打开新版后会自动清理旧 Service Worker/缓存并更新。
