@@ -3,13 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#111827">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="海运管理">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icon-192.png">
 <title>海运管理</title>
 <style>
 :root{
@@ -401,10 +394,10 @@ function bindEvents(){
   document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');['excel','paste','ocr','history'].forEach(k=>document.getElementById('itab-'+k).classList.toggle('hidden',t.dataset.itab!==k))});
   const dbind=(idv,fn)=>{const el=document.getElementById(idv);if(!el||el.dataset.bound==='1')return;el.dataset.bound='1';el.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();try{const r=fn();if(r&&r.catch)r.catch(err=>alert('操作失败：'+err.message))}catch(err){alert('操作失败：'+err.message)}})};
   document.getElementById('btnExportFull').onclick=null; dbind('btnExportFull',exportFullBackup);
-  dbind('btnImportFull',()=>{const el=document.getElementById('jsonInput');if(!el)throw new Error('找不到 JSON 文件选择器');try{el.value=''}catch(_){ } el.click();});
+  dbind('btnImportFull',()=>{if(__jsonImportInProgress)return;const el=document.getElementById('jsonInput');if(!el)throw new Error('找不到 JSON 文件选择器');try{el.value=''}catch(_){ } __filePickerOpen=true; el.click();setTimeout(()=>{__filePickerOpen=false;},1500);});
   dbind('btnClearAll',clearAllData);
   document.getElementById('btnExportMobile').onclick=null; dbind('btnExportMobile',exportMobilePackage);
-  dbind('btnImportMobile',()=>{const el=document.getElementById('mobileResultInput');if(!el)throw new Error('找不到查验结果文件选择器');try{el.value=''}catch(_){ } el.click();});
+  dbind('btnImportMobile',()=>{if(__jsonImportInProgress)return;const el=document.getElementById('mobileResultInput');if(!el)throw new Error('找不到查验结果文件选择器');try{el.value=''}catch(_){ } __filePickerOpen=true; el.click();setTimeout(()=>{__filePickerOpen=false;},1500);});
   document.getElementById('btnExportInspection').onclick=null; dbind('btnExportInspection',exportInspectionResults);
   document.getElementById('btnExportPurchases').onclick=null; dbind('btnExportPurchases',exportPurchasesCSV); document.getElementById('btnExportInventory').onclick=null; dbind('btnExportInventory',exportInventoryCSV); document.getElementById('btnExportBoxes').onclick=null; dbind('btnExportBoxes',exportBoxesCSV); document.getElementById('btnExportInspections').onclick=null; dbind('btnExportInspections',exportInspectionsCSV);
 }
@@ -1317,7 +1310,11 @@ async function confirmOCR(){importRows=ocrRows;await confirmImport();ocrRows=[]}
 
 function csvEscape(v){const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}
 let __lastDownloadKey=''; let __lastDownloadAt=0;
+let __jsonImportInProgress=false;
+let __filePickerOpen=false;
 function download(name,text,mime='text/plain'){
+  // 导入过程中绝不允许任何下载操作串入，防止移动端事件链误触发导出。
+  if(__jsonImportInProgress||__filePickerOpen)return;
   // 双保险：同一份内容短时间内只允许触发一次下载。
   const key=String(name)+'\n'+String(mime)+'\n'+String(text);
   const t=Date.now();
@@ -1413,49 +1410,71 @@ async function persistImportedState(){
   try{localStorage.setItem('shipping_manager_fallback',JSON.stringify(S));}catch(err){console.warn('localStorage fallback write failed:',err);}
 }
 async function importFullJSON(file){
-  if(!file)return;
-  const text=await readJsonFileText(file);
-  let obj;
-  try{obj=JSON.parse(text);}catch(err){throw new Error('JSON 格式错误：'+err.message);}
-  if(obj&&obj.type==='shipping-mobile-snapshot'&&obj.data){
-    const d=obj.data;
-    const pCount=Array.isArray(d.purchases)?d.purchases.length:0, bCount=Array.isArray(d.boxes)?d.boxes.length:0;
-    if(!window.confirm(`检测到手机数据包：采购 ${pCount} 条、库存分配 ${Array.isArray(d.allocations)?d.allocations.length:0} 条、海运箱 ${bCount} 个。\n导入后将替换手机当前本地数据，是否继续？`))return;
+  if(!file)return false;
+  if(__jsonImportInProgress)return false;
+  __jsonImportInProgress=true;
+  const status=document.getElementById('jsonImportStatus');
+  const setStatus=(msg,error=false)=>{if(status){status.textContent=msg;status.style.color=error?'var(--red)':'var(--muted)';}};
+  try{
+    setStatus('正在读取 JSON…');
+    const text=await readJsonFileText(file);
+    let obj;
+    try{obj=JSON.parse(text);}catch(err){throw new Error('JSON 格式错误：'+err.message);}
+    if(obj&&obj.type==='shipping-mobile-snapshot'&&obj.data){
+      const d=obj.data;
+      const pCount=Array.isArray(d.purchases)?d.purchases.length:0, bCount=Array.isArray(d.boxes)?d.boxes.length:0;
+      if(!window.confirm(`检测到手机数据包：采购 ${pCount} 条、库存分配 ${Array.isArray(d.allocations)?d.allocations.length:0} 条、海运箱 ${bCount} 个。\n导入后将替换手机当前本地数据，是否继续？`))return false;
+      const base=defaultState();
+      S={...base,...d,meta:{...base.meta,updatedAt:obj.sourceUpdatedAt||obj.createdAt||now()},settings:{...base.settings,...(d.settings||{})},itemMeta:d.itemMeta||{}};
+      S.purchases=Array.isArray(S.purchases)?S.purchases:[]; S.allocations=Array.isArray(S.allocations)?S.allocations:[]; S.boxes=Array.isArray(S.boxes)?S.boxes:[]; S.inspections=Array.isArray(S.inspections)?S.inspections:[];
+      setStatus('正在保存数据…');
+      await persistImportedState();
+      refresh(); navigate('dashboard');
+      setStatus(`✓ 导入完成：${S.purchases.length} 条采购、${S.boxes.length} 个海运箱`);
+      window.alert(`手机数据包导入成功：${S.purchases.length} 条采购、${S.boxes.length} 个海运箱。`);
+      return true;
+    }
+    if(!obj||!Array.isArray(obj.purchases)||!Array.isArray(obj.boxes))throw new Error('JSON结构不是海运管理完整数据，也不是手机数据包');
+    if(!window.confirm(`检测到完整备份：采购 ${obj.purchases.length} 条、海运箱 ${obj.boxes.length} 个。\n导入后将替换当前本地数据，是否继续？`))return false;
     const base=defaultState();
-    S={...base,...d,meta:{...base.meta,updatedAt:obj.sourceUpdatedAt||obj.createdAt||now()},settings:{...base.settings,...(d.settings||{})},itemMeta:d.itemMeta||{}};
-    S.purchases=Array.isArray(S.purchases)?S.purchases:[];
-    S.allocations=Array.isArray(S.allocations)?S.allocations:[];
-    S.boxes=Array.isArray(S.boxes)?S.boxes:[];
-    S.inspections=Array.isArray(S.inspections)?S.inspections:[];
+    S=normalizeImportedState(base,obj);
+    setStatus('正在保存数据…');
     await persistImportedState();
-    refresh();
-    navigate('dashboard');
-    alert(`手机数据包导入成功：${S.purchases.length} 条采购、${S.boxes.length} 个海运箱。`);
-    return;
+    refresh(); navigate('dashboard');
+    setStatus(`✓ 导入完成：${S.purchases.length} 条采购、${S.boxes.length} 个海运箱`);
+    window.alert(`完整数据导入成功：${S.purchases.length} 条采购、${S.boxes.length} 个海运箱。`);
+    return true;
+  }catch(e){
+    console.error('JSON import error:',e);
+    setStatus('导入失败：'+(e&&e.message?e.message:e),true);
+    window.alert('导入失败：'+(e&&e.message?e.message:e));
+    return false;
+  }finally{
+    __jsonImportInProgress=false;
   }
-  if(!obj||!Array.isArray(obj.purchases)||!Array.isArray(obj.boxes))throw new Error('JSON结构不是海运管理完整数据，也不是手机数据包');
-  if(!window.confirm(`检测到完整备份：采购 ${obj.purchases.length} 条、海运箱 ${obj.boxes.length} 个。\n导入后将替换当前本地数据，是否继续？`))return;
-  const base=defaultState();
-  S=normalizeImportedState(base,obj);
-  await persistImportedState();
-  refresh();
-  navigate('dashboard');
-  alert(`完整数据导入成功：${S.purchases.length} 条采购、${S.boxes.length} 个海运箱。`);
 }
 async function importMobileResults(file){
-  if(!file)return;
-  const obj=JSON.parse(await readJsonFileText(file));
-  if(obj.type!=='shipping-mobile-results')throw new Error('不是手机查验结果包');
-  let added=0;
-  for(const x of obj.inspections||[]){
-    const i=S.inspections.findIndex(i=>sameId(i.boxId,x.boxId));
-    if(i>=0)S.inspections[i]=x;else{S.inspections.push(x);added++;}
-    const b=S.boxes.find(b=>sameId(b.id,x.boxId));
-    if(b&&x.status==='已完成')b.status='查验完成';
-  }
-  await persistImportedState();
-  refresh();
-  alert(`已导入 ${obj.inspections?.length||0} 条查验结果`);
+  if(!file||__jsonImportInProgress)return false;
+  __jsonImportInProgress=true;
+  const status=document.getElementById('mobileImportStatus');
+  const setStatus=(msg,error=false)=>{if(status){status.textContent=msg;status.style.color=error?'var(--red)':'var(--muted)';}};
+  try{
+    setStatus('正在读取查验结果…');
+    const obj=JSON.parse(await readJsonFileText(file));
+    if(obj.type!=='shipping-mobile-results')throw new Error('不是手机查验结果包');
+    for(const x of obj.inspections||[]){const i=S.inspections.findIndex(i=>sameId(i.boxId,x.boxId));if(i>=0)S.inspections[i]=x;else S.inspections.push(x);const b=S.boxes.find(b=>sameId(b.id,x.boxId));if(b&&x.status==='已完成')b.status='查验完成';}
+    setStatus('正在保存数据…');
+    await persistImportedState();
+    refresh();
+    setStatus(`✓ 导入完成：${obj.inspections?.length||0} 条查验结果`);
+    window.alert(`已导入 ${obj.inspections?.length||0} 条查验结果`);
+    return true;
+  }catch(e){
+    console.error('Mobile results import error:',e);
+    setStatus('导入失败：'+(e&&e.message?e.message:e),true);
+    window.alert('导入失败：'+(e&&e.message?e.message:e));
+    return false;
+  }finally{__jsonImportInProgress=false;}
 }
 window.importFullJSON=importFullJSON;
 window.importMobileResults=importMobileResults;
@@ -1497,9 +1516,4 @@ window.exportFullBackup=exportFullBackup;window.exportMobilePackage=exportMobile
 <script>window.setItemSensitivity=setItemSensitivity;window.estimatedBoxTotalWeight=estimatedBoxTotalWeight;</script>
 <script>window.deleteInventoryItem=deleteInventoryItem;</script>
 </body>
-<script>
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(e=>console.warn('PWA Service Worker registration failed:',e)));
-}
-</script>
 </html>
