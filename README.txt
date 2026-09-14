@@ -1,7 +1,4 @@
-海运管理 PWA（龙开船送箱子图标版）
+海运管理 PWA v7
 
-Flat 结构：所有部署文件位于根目录。
-
-部署：将整个文件夹内容上传到 GitHub Pages 的站点根目录即可。
-
-注意：这是本地数据应用，数据保存在浏览器本地 IndexedDB/localStorage，不使用云端数据库。
+稳定版：移除会在启动时注销 Service Worker 的激进清理逻辑；start_url 恢复为根路径；Service Worker 使用安全的网络优先 HTML 策略。
+请完整替换 GitHub Pages 文件。
