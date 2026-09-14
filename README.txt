@@ -1,6 +1,7 @@
-海运管理 PWA v5
+海运管理 PWA（龙开船送箱子图标版）
 
-本版本重点修复 iPhone/PWA 导入 JSON 与导出 JSON 事件串线问题。
-导入按钮使用原生 label -> file input，不再绑定 click 导入处理器；导出按钮独立绑定。
+Flat 结构：所有部署文件位于根目录。
 
-部署：将本目录全部文件上传到 GitHub Pages 根目录。
+部署：将整个文件夹内容上传到 GitHub Pages 的站点根目录即可。
+
+注意：这是本地数据应用，数据保存在浏览器本地 IndexedDB/localStorage，不使用云端数据库。
