@@ -356,6 +356,8 @@ async function init(){
   try{refresh()}catch(err){console.error('页面刷新错误：',err)}
 }
 function bindEvents(){
+  if(window.__shippingEventsBound)return;
+  window.__shippingEventsBound=true;
   document.querySelectorAll('#nav button[data-page]').forEach(b=>b.onclick=()=>navigate(b.dataset.page));
   document.getElementById('globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter')doGlobalSearch(e.target.value)});
   document.getElementById('fileInput').addEventListener('change',e=>handleFile(e.target.files[0]));
@@ -369,9 +371,9 @@ function bindEvents(){
   ['inspSearch','inspStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderInspection));
   document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');['excel','paste','ocr','history'].forEach(k=>document.getElementById('itab-'+k).classList.toggle('hidden',t.dataset.itab!==k))});
   const dbind=(idv,fn)=>{const el=document.getElementById(idv);if(!el||el.dataset.bound==='1')return;el.dataset.bound='1';el.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();try{const r=fn();if(r&&r.catch)r.catch(err=>alert('操作失败：'+err.message))}catch(err){alert('操作失败：'+err.message)}})};
-  dbind('btnExportFull',exportFullBackup); dbind('btnImportFull',()=>document.getElementById('jsonInput').click()); dbind('btnClearAll',clearAllData);
-  dbind('btnExportMobile',exportMobilePackage); dbind('btnImportMobile',()=>document.getElementById('mobileResultInput').click()); dbind('btnExportInspection',exportInspectionResults);
-  dbind('btnExportPurchases',exportPurchasesCSV); dbind('btnExportInventory',exportInventoryCSV); dbind('btnExportBoxes',exportBoxesCSV); dbind('btnExportInspections',exportInspectionsCSV);
+  document.getElementById('btnExportFull').onclick=null; dbind('btnExportFull',exportFullBackup); dbind('btnImportFull',()=>document.getElementById('jsonInput').click()); dbind('btnClearAll',clearAllData);
+  document.getElementById('btnExportMobile').onclick=null; dbind('btnExportMobile',exportMobilePackage); dbind('btnImportMobile',()=>document.getElementById('mobileResultInput').click()); document.getElementById('btnExportInspection').onclick=null; dbind('btnExportInspection',exportInspectionResults);
+  document.getElementById('btnExportPurchases').onclick=null; dbind('btnExportPurchases',exportPurchasesCSV); document.getElementById('btnExportInventory').onclick=null; dbind('btnExportInventory',exportInventoryCSV); document.getElementById('btnExportBoxes').onclick=null; dbind('btnExportBoxes',exportBoxesCSV); document.getElementById('btnExportInspections').onclick=null; dbind('btnExportInspections',exportInspectionsCSV);
 }
 function navigate(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -1283,10 +1285,10 @@ async function confirmOCR(){importRows=ocrRows;await confirmImport();ocrRows=[]}
 function csvEscape(v){const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}
 let __lastDownloadKey=''; let __lastDownloadAt=0;
 function download(name,text,mime='text/plain'){
-  // 防止同一次点击因重复事件绑定/浏览器事件冒泡而触发两次下载。
+  // 双保险：同一份内容短时间内只允许触发一次下载。
   const key=String(name)+'\n'+String(mime)+'\n'+String(text);
   const t=Date.now();
-  if(key===__lastDownloadKey && t-__lastDownloadAt<1200)return;
+  if(key===__lastDownloadKey && t-__lastDownloadAt<3000)return;
   __lastDownloadKey=key; __lastDownloadAt=t;
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([text],{type:mime}));
