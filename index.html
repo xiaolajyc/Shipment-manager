@@ -1004,6 +1004,20 @@ async function saveLogistics(bid){
     b.dispatchDate=val('lgDispatchDate');
     b.eta=val('lgEta');
     b.arrivedDate=val('lgArrivedDate');
+
+    // 根据物流节点自动更新运输状态：国际单号 > 国内单号；到货状态优先保留。
+    // 物流异常（issue/lost/seized）是独立字段，不覆盖正常运输节点状态。
+    if(b.status!=='查验完成'){
+      if(b.arrivedDate){
+        b.status='已到货';
+      }else if(b.internationalTrackingNo){
+        b.status='国际运输';
+      }else if(b.domesticTrackingNo){
+        b.status='国内运输';
+      }else if(b.status==='国内运输'||b.status==='国际运输'){
+        b.status=b.sealedAt?'已封箱':'装箱中';
+      }
+    }
     b.domesticFreightRmb=Number(val('lgDomesticFreight'))||0;
     b.internationalFreightRmb=Number(val('lgInternationalFreight'))||0;
     b.note=String(val('lgNote')).trim();
@@ -1054,22 +1068,12 @@ function renderShippingPhrases(){
   el.innerHTML=arr.map((x,i)=>`<div class="card" style="margin-bottom:10px;padding:12px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><b>${esc(x.title||'未命名话术')}</b><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small primary" type="button" onclick="copyShippingPhrase('${x.id}')">复制</button><button class="btn small" type="button" onclick="editShippingPhrase('${x.id}')">编辑</button><button class="btn small" type="button" onclick="deleteShippingPhrase('${x.id}')">删除</button></div></div><div class="muted" style="white-space:pre-wrap;margin-top:8px;line-height:1.6">${esc(x.text||'')}</div></div>`).join('');
 }
 function addShippingPhrase(){
-  openModal(`<div class="modal-head"><div><h3>新增海运话术</h3><div class="muted">保存后可随时编辑或一键复制</div></div><button class="btn icon" type="button" onclick="closeModal()">×</button></div>
-  <div class="form-grid">
-    <div class="field full"><label>话术名称</label><input id="phraseTitleInput" placeholder="例如：催物流 / 查询海运进度"></div>
-    <div class="field full"><label>话术内容</label><textarea id="phraseTextInput" rows="8" placeholder="输入需要发送的海运沟通话术"></textarea></div>
-  </div>
-  <div class="modal-foot"><button class="btn" type="button" onclick="closeModal()">取消</button><button class="btn primary" type="button" id="savePhraseBtn">保存话术</button></div>`);
-  const btn=document.getElementById('savePhraseBtn');
-  if(btn)btn.addEventListener('click',saveNewShippingPhrase);
-}
-async function saveNewShippingPhrase(){
-  const title=String(document.getElementById('phraseTitleInput')?.value||'').trim();
-  const text=String(document.getElementById('phraseTextInput')?.value||'');
-  if(!title&&!text.trim())return alert('话术名称和内容不能都为空。');
+  const title=prompt('话术名称，例如：催物流 / 查询海运进度'); if(title===null)return;
+  const text=prompt('请输入话术内容：'); if(text===null)return;
+  if(!String(title).trim()&&!String(text).trim())return alert('话术名称和内容不能都为空。');
   if(!Array.isArray(S.shippingPhrases))S.shippingPhrases=[];
-  S.shippingPhrases.push({id:id('phrase'),title:title||'未命名话术',text});
-  try{await saveState();closeModal();renderShippingPhrases();}catch(e){alert('保存失败：'+e.message);}
+  S.shippingPhrases.push({id:id('phrase'),title:String(title).trim()||'未命名话术',text:String(text)});
+  saveState().then(()=>{renderShippingPhrases();}).catch(e=>alert('保存失败：'+e.message));
 }
 function editShippingPhrase(pid){
   const x=(S.shippingPhrases||[]).find(v=>sameId(v.id,pid)); if(!x)return;
@@ -1392,7 +1396,7 @@ function openModal(html){document.getElementById('modal').innerHTML=html;documen
 function closeModal(){document.getElementById('modalBack').classList.remove('open');document.getElementById('modal').innerHTML='';window._activeInspection=null}
 document.getElementById('modalBack').addEventListener('click',e=>{if(e.target.id==='modalBack')closeModal()});
 init();
-window.addShippingPhrase=addShippingPhrase;window.editShippingPhrase=editShippingPhrase;window.deleteShippingPhrase=deleteShippingPhrase;window.copyShippingPhrase=copyShippingPhrase;window.navigate=navigate;window.openEditPurchase=openEditPurchase;window.saveEditPurchase=saveEditPurchase;window.saveMoveAllocation=saveMoveAllocation;window.saveBatchMove=saveBatchMove;
+window.navigate=navigate;window.openEditPurchase=openEditPurchase;window.saveEditPurchase=saveEditPurchase;window.saveMoveAllocation=saveMoveAllocation;window.saveBatchMove=saveBatchMove;
 window.exportFullBackup=exportFullBackup;window.exportMobilePackage=exportMobilePackage;window.exportInspectionResults=exportInspectionResults;window.exportPurchasesCSV=exportPurchasesCSV;window.exportInventoryCSV=exportInventoryCSV;window.exportBoxesCSV=exportBoxesCSV;window.exportInspectionsCSV=exportInspectionsCSV;
 </script>
 <script>window.setItemSensitivity=setItemSensitivity;window.estimatedBoxTotalWeight=estimatedBoxTotalWeight;</script>
