@@ -1164,12 +1164,7 @@ function setInsVal(aid,v){if(!window._activeInspection)return;const it=window._a
 async function attachInspectionPhoto(aid,file){if(!file||!window._activeInspection)return;const it=window._activeInspection.items.find(x=>x.allocationId===aid);if(!it)return;it.photo=await compressImage(file);const btn=document.querySelector(`button[onclick=\"document.getElementById('photo_${aid}').click()\"]`);if(btn)btn.textContent='📷✓'}
 function compressImage(file){return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=()=>{const max=1280,scale=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext('2d').drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',.78))};img.onerror=reject;img.src=fr.result};fr.onerror=reject;fr.readAsDataURL(file)})}
 async function saveInspection(bid){const b=S.boxes.find(x=>x.id===bid),ins=window._activeInspection;if(!ins)return;ins.note=document.getElementById('insNote').value;let complete=true,abnormal=false;ins.items.forEach(it=>{const a=boxLines(b).find(x=>x.id===it.allocationId);const meta=a?inspectionDrugMetaForAllocation(a):{};if(it.actualQty==null||!Number.isFinite(it.actualQty)){complete=false}else if(Math.abs(it.actualQty-it.expectedQty)>1e-9)abnormal=true;if(meta.isDrug===true&&(it.drugCheck!=='match')){complete=false;if(it.drugCheck==='mismatch')abnormal=true;}});if(!complete)return alert('请先完成所有商品数量核对；标记为药品的还必须完成规格核对（选择“规格一致”或“规格不一致”）。');ins.status=abnormal?'异常':'已完成';ins.updatedAt=now();const idx=S.inspections.findIndex(x=>x.id===ins.id);if(idx>=0)S.inspections[idx]=ins;else S.inspections.push(ins);if(!abnormal)b.status='查验完成';S.logs.push({id:id('log'),time:now(),type:'inspection',text:`${b.code} 查验 ${ins.status}`});await saveState();closeModal();refresh();navigate('inspection')}
-function printBox(bid){const b=S.boxes.find(x=>x.id===bid),lines=boxLines(b);const html=`<html><head><title>${b.code}装箱单</title><style>body{font-family:Arial,"Microsoft YaHei";padding:30px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:8px;text-align:left}h1{margin-top:0}</style></head><body><h1>${esc(b.code)} 装箱清单</h1><p>海运号：${esc(b.seaNo||'—')}　收货人：${esc(b.recipient||'—')}　整箱重量：${fmtNum(b.actualTotalWeightKg)} kg</p><p>寄出：${esc(b.dispatchDate||'—')}　收到：${esc(b.arrivedDate||'—')}　运输时长：${transportDurationText(b)}</p><table><tr><th>物品</th><th>数量</th></tr>${lines.map(a=>`<tr><td>${esc(a.itemName)}</td><td>${qtyText(a.packedQty||0,a.qtyUnit)}</td></tr>`).join('')}</table><script>window.print()<\/script><script>
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(e=>console.warn('PWA Service Worker registration failed:',e)));
-}
-</script>
-</body></html>`;const w=window.open();w.document.write(html);w.document.close()}
+function printBox(bid){const b=S.boxes.find(x=>x.id===bid),lines=boxLines(b);const html=`<html><head><title>${b.code}装箱单</title><style>body{font-family:Arial,"Microsoft YaHei";padding:30px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:8px;text-align:left}h1{margin-top:0}</style></head><body><h1>${esc(b.code)} 装箱清单</h1><p>海运号：${esc(b.seaNo||'—')}　收货人：${esc(b.recipient||'—')}　整箱重量：${fmtNum(b.actualTotalWeightKg)} kg</p><p>寄出：${esc(b.dispatchDate||'—')}　收到：${esc(b.arrivedDate||'—')}　运输时长：${transportDurationText(b)}</p><table><tr><th>物品</th><th>数量</th></tr>${lines.map(a=>`<tr><td>${esc(a.itemName)}</td><td>${qtyText(a.packedQty||0,a.qtyUnit)}</td></tr>`).join('')}</table><script>window.print()<\/script></body></html>`;const w=window.open();w.document.write(html);w.document.close()}
 function renderFinance(){
   const activePurchases=S.purchases.filter(p=>!p.deleted);
   const y=new Date().getFullYear(),m=String(new Date().getMonth()+1).padStart(2,'0');
@@ -1502,4 +1497,9 @@ window.exportFullBackup=exportFullBackup;window.exportMobilePackage=exportMobile
 <script>window.setItemSensitivity=setItemSensitivity;window.estimatedBoxTotalWeight=estimatedBoxTotalWeight;</script>
 <script>window.deleteInventoryItem=deleteInventoryItem;</script>
 </body>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(e=>console.warn('PWA Service Worker registration failed:',e)));
+}
+</script>
 </html>
