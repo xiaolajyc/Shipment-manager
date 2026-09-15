@@ -608,28 +608,28 @@ async function markSelectedAsDrug(){
   if(!keys.length)return alert('请先在库存列表勾选需要标记的商品');
   S.itemMeta=S.itemMeta||{};
   keys.forEach(key=>{S.itemMeta[key]={...(S.itemMeta[key]||{}),isDrug:true};});
-  await saveState();refresh();
+  syncDrugMeds();await saveState();refresh();
   alert(`已将 ${keys.length} 项库存标记为药物。可进入“详情/调整”填写规格信息。`);
 }
 async function markInventoryItemAsDrug(keyEncoded){
   const key=decodeURIComponent(keyEncoded);
   S.itemMeta=S.itemMeta||{};
   S.itemMeta[key]={...(S.itemMeta[key]||{}),isDrug:true};
-  await saveState();
+  syncDrugMeds();await saveState();
   refresh();
 }
 async function unmarkDrug(keyEncoded){
   const key=decodeURIComponent(keyEncoded);
   S.itemMeta=S.itemMeta||{};
   if(S.itemMeta[key])S.itemMeta[key]={...S.itemMeta[key],isDrug:false};
-  await saveState();refresh();
+  syncDrugMeds();await saveState();refresh();
 }
 async function saveDrugMeta(keyEncoded){
   const key=decodeURIComponent(keyEncoded);
   S.itemMeta=S.itemMeta||{};
   const old=S.itemMeta[key]||{};
   S.itemMeta[key]={...old,isDrug:true,activeIngredient:document.getElementById('drugActiveIngredient')?.value.trim()||'',content:document.getElementById('drugContent')?.value.trim()||'',grams:document.getElementById('drugGrams')?.value.trim()||'',dosageForm:document.getElementById('drugDosageForm')?.value.trim()||'',manufacturer:document.getElementById('drugManufacturer')?.value.trim()||'',drugNote:document.getElementById('drugNote')?.value.trim()||''};
-  await saveState();closeModal();refresh();navigate('inventory');
+  syncDrugMeds();await saveState();closeModal();refresh();navigate('inventory');
 }
 function openInventoryDetail(ie,ue){
   const item=decodeURIComponent(ie),unit=decodeURIComponent(ue),g=inventoryGroups().find(x=>x.itemName===item&&x.unit===unit);
@@ -1212,7 +1212,28 @@ function drawBars(idv,entries,type){
     </div>`;
   }).join('');
 }
-function renderMeds(){document.getElementById('medBody').innerHTML=S.meds.length?S.meds.map(m=>`<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.spec||'—')}</td><td>${qtyText(m.qtyValue,m.qtyUnit)}</td><td>${esc(m.expiry||'—')}</td><td>${esc(m.destination||'—')}</td><td class="wrap">${esc(m.note||'')}</td><td><button class="btn small" onclick="openMed('${m.id}')">编辑</button></td></tr>`).join(''):'<tr><td colspan="7"><div class="empty">暂无药品记录</div></td></tr>'}
+function syncDrugMeds(){
+  S.meds=Array.isArray(S.meds)?S.meds:[];
+  S.itemMeta=S.itemMeta||{};
+  const groups=inventoryGroups();
+  const marked=new Map(groups.filter(g=>isDrug(g)).map(g=>[inventoryGroupKey(g),g]));
+  // 自动药品记录只由库存药品标记驱动；手动添加的药品不受影响。
+  const existing=new Map(S.meds.filter(m=>m.autoFromInventory&&m.sourceKey).map(m=>[m.sourceKey,m]));
+  for(const [key,g] of marked){
+    let m=existing.get(key);
+    if(!m){m={id:id('med'),autoFromInventory:true,sourceKey:key};S.meds.push(m)}
+    const meta=itemMetaFor(g);
+    m.name=g.itemName;
+    m.spec=meta.content||meta.dosageForm||g.unit||'';
+    m.qtyValue=g.rawQty;
+    m.qtyUnit=g.unit||'';
+    m.destination='国内库存';
+    m.note='由库存“药品”标记自动录入；库存详情可查看分配/装箱情况。';
+  }
+  // 取消药品标记后，自动记录不再显示；手动药品记录保留。
+  S.meds=S.meds.filter(m=>!m.autoFromInventory || marked.has(m.sourceKey));
+}
+function renderMeds(){syncDrugMeds();document.getElementById('medBody').innerHTML=S.meds.length?S.meds.map(m=>`<tr><td><b>${esc(m.name)}</b>${m.autoFromInventory?'<span class="badge blue" style="margin-left:6px">库存自动</span>':''}</td><td>${esc(m.spec||'—')}</td><td>${qtyText(m.qtyValue,m.qtyUnit)}</td><td>${esc(m.expiry||'—')}</td><td>${esc(m.destination||'—')}</td><td class="wrap">${esc(m.note||'')}</td><td><button class="btn small" onclick="openMed('${m.id}')">编辑</button></td></tr>`).join(''):'<tr><td colspan="7"><div class="empty">暂无药品记录</div></td></tr>'}
 function openMed(mid){const m=mid?S.meds.find(x=>x.id===mid):null;openModal(`<div class="modal-head"><div><h3>${m?'编辑':'添加'}药品</h3></div><button class="btn icon" onclick="closeModal()">×</button></div><div class="form-grid"><div class="field"><label>药品名称</label><input id="medName" value="${esc(m?.name||'')}"></div><div class="field"><label>规格</label><input id="medSpec" value="${esc(m?.spec||'')}"></div><div class="field"><label>数量</label><input id="medQty" value="${m?qtyText(m.qtyValue,m.qtyUnit):''}"></div><div class="field"><label>有效期</label><input id="medExp" type="date" value="${esc(m?.expiry||'')}"></div><div class="field"><label>去向</label><input id="medDest" value="${esc(m?.destination||'')}"></div><div class="field"><label>备注</label><input id="medNote" value="${esc(m?.note||'')}"></div></div><div class="modal-foot"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveMed('${m?.id||''}')">保存</button></div>`)}
 async function saveMed(mid){const q=parseQty(document.getElementById('medQty').value);const obj={id:mid||id('med'),name:document.getElementById('medName').value.trim(),spec:document.getElementById('medSpec').value.trim(),qtyValue:q.value,qtyUnit:q.unit,expiry:document.getElementById('medExp').value,destination:document.getElementById('medDest').value,note:document.getElementById('medNote').value};if(!obj.name)return alert('请输入药品名称');const i=S.meds.findIndex(x=>x.id===obj.id);if(i>=0)S.meds[i]=obj;else S.meds.push(obj);await saveState();closeModal();refresh()}
 function renderSettings(){document.getElementById('setPrefix').value=S.settings.prefix||'Y';document.getElementById('setNextBox').value=nextBoxCode()}
