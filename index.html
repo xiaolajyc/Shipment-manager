@@ -1520,7 +1520,16 @@ function doGlobalSearch(q){
 }
 function openModal(html){document.getElementById('modal').innerHTML=html;document.getElementById('modalBack').classList.add('open')}
 function closeModal(){document.getElementById('modalBack').classList.remove('open');document.getElementById('modal').innerHTML='';window._activeInspection=null}
-document.getElementById('modalBack').addEventListener('click',e=>{if(e.target.id==='modalBack')closeModal()});
+
+// 移动端防误触：弹窗背景不响应 touch/pointer 的关闭动作。
+const modalBackEl=document.getElementById('modalBack');
+if(modalBackEl){
+  ['pointerdown','pointerup','touchstart','touchend'].forEach(ev=>modalBackEl.addEventListener(ev,e=>{
+    if(e.target===modalBackEl){e.stopPropagation();}
+  },{passive:true}));
+}
+// 不允许点击弹窗外的空白区域关闭弹窗，避免手机端误触；只能通过明确的关闭/取消按钮关闭。
+document.getElementById('modalBack').addEventListener('click',e=>{e.stopPropagation()});
 init();
 window.navigate=navigate;window.openEditPurchase=openEditPurchase;window.saveEditPurchase=saveEditPurchase;window.saveMoveAllocation=saveMoveAllocation;window.saveBatchMove=saveBatchMove;
 window.exportFullBackup=exportFullBackup;window.exportMobilePackage=exportMobilePackage;window.exportInspectionResults=exportInspectionResults;window.exportPurchasesCSV=exportPurchasesCSV;window.exportInventoryCSV=exportInventoryCSV;window.exportBoxesCSV=exportBoxesCSV;window.exportInspectionsCSV=exportInspectionsCSV;
