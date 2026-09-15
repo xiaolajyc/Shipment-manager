@@ -539,12 +539,9 @@ function renderInventory(){
   let rows=inventoryGroups().filter(g=>!search||g.itemName.toLowerCase().includes(search)||g.sources.some(p=>(p.orderNo||'').toLowerCase().includes(search)));
   // 药品筛选是独立维度：选择“全部药品”时必须显示所有已标记药品，
   // 包括已经全部分配、已装箱或留存在家中的药品，不能再被库存状态筛选隐藏。
-  if(drugFilter==='drug'){
-    rows=rows.filter(g=>isDrug(g));
-  }else{
-    rows=rows.filter(g=>status==='all'||(status==='pending'&&g.remaining>0&&g.allocated===0)||(status==='partial'&&g.remaining>0&&g.allocated>0)||(status==='allocated'&&g.remaining<=1e-9));
-    rows=rows.filter(g=>drugFilter==='all'||(drugFilter==='non_drug'&&!isDrug(g)));
-  }
+  // 商品类型、库存状态是独立筛选条件，必须同时生效。
+  rows=rows.filter(g=>drugFilter==='all'||(drugFilter==='drug'&&isDrug(g))||(drugFilter==='non_drug'&&!isDrug(g)));
+  rows=rows.filter(g=>status==='all'||(status==='pending'&&g.remaining>0&&g.allocated===0)||(status==='partial'&&g.remaining>0&&g.allocated>0)||(status==='allocated'&&g.remaining<=1e-9));
   rows=rows.filter(g=>sensitivity==='all'||(sensitivity==='non_sensitive'&&itemSensitivity(g)==='非敏感货')||(sensitivity==='sensitive'&&itemSensitivity(g)==='敏感货'));
   rows=rows.filter(g=>tempFilter==='all'||(tempFilter==='temp'&&isTempStored(g))||(tempFilter==='non_temp'&&!isTempStored(g)));
   const body=document.getElementById('inventoryBody');
