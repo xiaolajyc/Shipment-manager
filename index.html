@@ -195,7 +195,7 @@ td.wrap{white-space:normal;min-width:240px}
         <div class="card">
           <div class="toolbar">
       <input id="invSearch" placeholder="搜索商品名 / 订单号">
-      <select id="invStatus"><option value="all">全部状态</option><option value="pending">待分配</option><option value="partial">部分分配</option><option value="allocated">已全部分配</option></select><select id="invSensitivity"><option value="all">全部货物</option><option value="non_sensitive">非敏感货</option><option value="sensitive">敏感货</option></select><select id="invDrug"><option value="all">全部类型</option><option value="drug">💊 全部药品</option><option value="non_drug">非药品</option></select><select id="invTemp"><option value="all">暂存：全部</option><option value="temp">📦 暂时存放</option><option value="non_temp">非暂存</option></select>
+      <select id="invStatus"><option value="all">全部状态</option><option value="pending">待分配</option><option value="partial">部分分配</option><option value="allocated">已全部分配</option></select><select id="invSensitivity"><option value="all">全部货物</option><option value="non_sensitive">非敏感货</option><option value="sensitive">敏感货</option></select><select id="invProhibited"><option value="all">禁运品：全部</option><option value="prohibited">🚫 禁运品</option><option value="non_prohibited">非禁运品</option></select><select id="invDrug"><option value="all">全部类型</option><option value="drug">💊 全部药品</option><option value="non_drug">非药品</option></select><select id="invTemp"><option value="all">暂存：全部</option><option value="temp">📦 暂时存放</option><option value="non_temp">非暂存</option></select>
       <button class="btn primary" onclick="openBatchAllocate()">批量分配</button><button class="btn" onclick="openBatchMove()">批量移动</button><button class="btn" onclick="markSelectedAsDrug()">💊 批量标记为药品</button>
       <span class="muted" id="invSelectedCount">已选 0 项</span><span class="muted" id="invSelectedWeight">所选库存重量 0 kg</span>
     </div>
@@ -403,7 +403,7 @@ function bindEvents(){
       finally{try{input.value=''}catch(_){};}
     };
   }
-  ['invSearch','invStatus','invSensitivity','invDrug','invTemp'].forEach(x=>document.getElementById(x)?.addEventListener('input',renderInventory));
+  ['invSearch','invStatus','invSensitivity','invProhibited','invDrug','invTemp'].forEach(x=>document.getElementById(x)?.addEventListener('input',renderInventory));
   ['boxSearch','boxStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderBoxes));
   ['logSearch'].forEach(x=>document.getElementById(x).addEventListener('input',renderLogistics));
   ['inspSearch','inspStatus'].forEach(x=>document.getElementById(x).addEventListener('input',renderInspection));
@@ -516,6 +516,17 @@ function itemSensitivity(g){
   const key=inventoryGroupKey(g);
   return (S.itemMeta&&S.itemMeta[key]&&S.itemMeta[key].sensitivity)==='non_sensitive'?'非敏感货':'敏感货';
 }
+function isProhibited(g){return itemMetaFor(g).prohibited===true}
+function prohibitedBadge(g){return isProhibited(g)?'<span class="badge red">🚫 禁运品</span>':'<span class="badge gray">非禁运品</span>'}
+async function toggleProhibited(keyEncoded){
+  const key=decodeURIComponent(keyEncoded);
+  S.itemMeta=S.itemMeta||{};
+  const old=S.itemMeta[key]||{};
+  const next=!old.prohibited;
+  S.itemMeta[key]={...old,prohibited:next};
+  S.logs.push({id:id('log'),time:now(),type:'prohibited',text:`${next?'标记':'取消标记'}禁运品：${key.split('||')[0]}`});
+  await saveState();refresh();navigate('inventory');
+}
 async function setItemSensitivity(keyEncoded){
   const key=decodeURIComponent(keyEncoded);
   S.itemMeta=S.itemMeta||{};
@@ -541,6 +552,7 @@ function renderInventory(){
   const search=(document.getElementById('invSearch')?.value||'').toLowerCase();
   const status=document.getElementById('invStatus')?.value||'all';
   const sensitivity=document.getElementById('invSensitivity')?.value||'all';
+  const prohibited=document.getElementById('invProhibited')?.value||'all';
   const drugFilter=document.getElementById('invDrug')?.value||'all';
   const tempFilter=document.getElementById('invTemp')?.value||'all';
   let rows=inventoryGroups().filter(g=>!search||g.itemName.toLowerCase().includes(search)||g.sources.some(p=>(p.orderNo||'').toLowerCase().includes(search)));
@@ -550,6 +562,7 @@ function renderInventory(){
   rows=rows.filter(g=>drugFilter==='all'||(drugFilter==='drug'&&isDrug(g))||(drugFilter==='non_drug'&&!isDrug(g)));
   rows=rows.filter(g=>status==='all'||(status==='pending'&&g.remaining>0&&g.allocated===0)||(status==='partial'&&g.remaining>0&&g.allocated>0)||(status==='allocated'&&g.remaining<=1e-9));
   rows=rows.filter(g=>sensitivity==='all'||(sensitivity==='non_sensitive'&&itemSensitivity(g)==='非敏感货')||(sensitivity==='sensitive'&&itemSensitivity(g)==='敏感货'));
+  rows=rows.filter(g=>prohibited==='all'||(prohibited==='prohibited'&&isProhibited(g))||(prohibited==='non_prohibited'&&!isProhibited(g)));
   rows=rows.filter(g=>tempFilter==='all'||(tempFilter==='temp'&&isTempStored(g))||(tempFilter==='non_temp'&&!isTempStored(g)));
   const body=document.getElementById('inventoryBody');
   if(!body)return;
@@ -557,8 +570,8 @@ function renderInventory(){
     const key=encodeURIComponent(inventoryGroupKey(g));
     return `<tr>
       <td><input class="inv-check" type="checkbox" value="${key}" onchange="updateInventorySelection()"></td>
-      <td><b>${isTempStored(g)?'<span class="temp-mark" title="暂时存放">📦</span>':''}${isDrug(g)?'💊 ':''}${esc(g.itemName)}</b> ${isTempStored(g)?'<span class="badge temp">暂时存放</span>':''} ${isDrug(g)?'<span class="badge green">药品</span>':''}<button class="btn small" style="margin-left:6px" onclick="event.stopPropagation();toggleTemporaryStorage('${key}')">${isTempStored(g)?'取消暂存':'标记暂存'}</button> <button class="btn small ${isDrug(g)?'danger':''}" onclick="event.stopPropagation();${isDrug(g)?`unmarkDrug('${key}')`:`markInventoryItemAsDrug('${key}')`}">${isDrug(g)?'取消标记':'标记为药品'}</button></td>
-      <td>${sensitivityBadge(g)} <button class="btn small" onclick="setItemSensitivity('${key}')">${itemSensitivity(g)==='非敏感货'?'改为敏感':'标为非敏感'}</button></td>
+      <td><b>${isTempStored(g)?'<span class="temp-mark" title="暂时存放">📦</span>':''}${isDrug(g)?'💊 ':''}${isProhibited(g)?'🚫 ':''}${esc(g.itemName)}</b> ${isTempStored(g)?'<span class="badge temp">暂时存放</span>':''} ${isDrug(g)?'<span class="badge green">药品</span>':''} ${isProhibited(g)?'<span class="badge red">禁运品</span>':''}<button class="btn small" style="margin-left:6px" onclick="event.stopPropagation();toggleTemporaryStorage('${key}')">${isTempStored(g)?'取消暂存':'标记暂存'}</button> <button class="btn small ${isDrug(g)?'danger':''}" onclick="event.stopPropagation();${isDrug(g)?`unmarkDrug('${key}')`:`markInventoryItemAsDrug('${key}')`}">${isDrug(g)?'取消标记':'标记为药品'}</button> <button class="btn small ${isProhibited(g)?'danger':''}" onclick="event.stopPropagation();toggleProhibited('${key}')">${isProhibited(g)?'取消禁运':'标记禁运'}</button></td>
+      <td>${sensitivityBadge(g)} ${prohibitedBadge(g)} <button class="btn small" onclick="setItemSensitivity('${key}')">${itemSensitivity(g)==='非敏感货'?'改为敏感':'标为非敏感'}</button></td>
       <td><b>${qtyText(g.rawQty,g.unit)}</b></td>
       <td>${fmtNum(g.rawWeightKg)} kg</td>
       <td>${qtyText(g.allocated,g.unit)}</td>
