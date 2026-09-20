@@ -1,4 +1,4 @@
-海运管理 PWA v7
+海运管理 PWA v19
 
-稳定版：移除会在启动时注销 Service Worker 的激进清理逻辑；start_url 恢复为根路径；Service Worker 使用安全的网络优先 HTML 策略。
-请完整替换 GitHub Pages 文件。
+Flat 结构。新增 Google Drive 多设备同步，使用用户提供的 Google OAuth Client ID 和 drive.file 权限。
+设置 → Google Drive 云同步 → 连接 Google Drive → 上传/同步或从云端恢复；可开启“数据修改后自动同步”。
